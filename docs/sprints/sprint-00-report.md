@@ -91,8 +91,15 @@ representation; ADR-004 append-only historical observations.
 ## Release/version created
 
 - Version: **v0.0.0** (engineering foundation only).
-- Commit: recorded in Git history on branch `claude/resume-session-devices-ibdww4`.
-- Tag: `v0.0.0` at the release commit.
+- Commit: `124a6de` on branch `claude/resume-session-devices-ibdww4` (pushed).
+- Tag/Release: `v0.0.0` targeting commit `124a6de`. Note: the session's
+  environment-injected git credential is scoped to the working branch and is not
+  permitted to create `refs/tags/*` (push returned HTTP 403), and the GitHub MCP
+  server in this session exposes no release/tag-creation tool. The `v0.0.0` tag and
+  GitHub Release were therefore created by the repository owner via the GitHub UI,
+  targeting the same commit `124a6de`
+  (https://github.com/shegs-a/alphadex/releases/tag/v0.0.0). The annotated tag also
+  exists in the session's local clone but could not be pushed from here.
 
 ## Rollback procedure
 
