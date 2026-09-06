@@ -107,23 +107,22 @@ Do not add a frontend framework until a real UI requirement exists (Sprint 10).
 
 ## 5. Development Commands
 
-> Full commands land in Sprint 01 with `pyproject.toml`. Until then:
-
 ```bash
-# Run the Sprint 00 foundation test gate (stdlib only, no deps required)
-python3 -m unittest discover -s tests -v
-```
-
-Planned (Sprint 01+):
-
-```bash
-uv sync                     # install/lock dependencies
+uv sync --extra dev         # install/lock dependencies (incl. dev tools)
 uv run ruff check .         # lint
 uv run ruff format .        # format
 uv run mypy src             # type check
-uv run pytest               # full test suite
+uv run pytest               # full test suite (also runs the foundation gate)
 uv run alembic upgrade head # apply migrations
 uv run uvicorn alphadex.api.app:app --reload   # run API locally
+```
+
+The dependency-free foundation gate (stdlib only, no deps required) is run as a
+targeted module — do not use `unittest discover`, which now collides with the
+pytest-style suite:
+
+```bash
+python3 -m unittest tests.test_foundation -v
 ```
 
 ---

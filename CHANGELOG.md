@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.1.0] — 2026-09-06
+
+### Added
+- Platform foundation (Sprint 01):
+  - FastAPI application (`alphadex.api.app:app`) with `GET /health` reporting
+    application and database health (200 healthy, 503 when the database is down).
+  - PostgreSQL 16 via Docker Compose (`docker-compose.yml` + `Dockerfile`) with
+    healthchecks, `depends_on: service_healthy`, and a persistent `pgdata` volume.
+  - SQLAlchemy 2.0 models: `Asset` and append-only `MetricObservation` with a
+    `ValueStatus` enum and a check constraint enforcing that missing data is
+    explicit and never stored as `0` (ADR-003 / ADR-004).
+  - Alembic migrations (`0001_initial_schema`) wired to application settings.
+  - Env-driven configuration (pydantic-settings) and structured logging (structlog).
+  - `pyproject.toml` (uv) with pinned dependencies + `uv.lock`; ruff + mypy config.
+  - Test suite under pytest (config, health, data-quality, migration smoke); the
+    dependency-free foundation gate is retained and now run as a targeted module.
+
+### Changed
+- Foundation gate invocation is now `python3 -m unittest tests.test_foundation`
+  (not `unittest discover`), with `uv run pytest` as the canonical test runner.
+
+### Notes
+- First working, runnable platform. Docker/PostgreSQL container startup was not
+  executed in the build session (no Docker daemon); the app + migrations were
+  verified end-to-end against a real database engine. Run `docker compose up
+  --build` on a Docker-capable host to confirm the container path.
+
 ## [0.0.0] — 2026-09-06
 
 ### Added

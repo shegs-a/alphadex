@@ -91,51 +91,61 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 00 — Architecture & Engineering Foundation.**
+**Sprint 01 — Platform Foundation.**
 
-This repository currently contains the engineering foundation only: documentation,
-architecture decisions, sprint process, and a runnable foundation test gate. The
-application code, database, Docker environment, and health endpoint are **planned
-for Sprint 01 (Platform Foundation)** and are intentionally not yet present.
+The engineering foundation (Sprint 00) plus a working, testable, Dockerized
+application skeleton: a FastAPI service with a `/health` endpoint that reports
+application and database health, PostgreSQL via Docker Compose, SQLAlchemy 2.0 +
+Alembic migrations, env-driven configuration, and structured logging. The core
+persistence schema encodes the ADR-003 (missing-data) and ADR-004 (observations)
+contracts.
 
 ### Current capabilities
 - Documented mission, architecture principles, and coding/data/scoring rules
-  (`AGENTS.md`).
-- Architecture decision records for the modular monolith, technology stack,
-  missing-data representation, and historical observations model.
-- Sprint process with plan/report templates and the Sprint 00 plan + report.
-- A dependency-free foundation test gate verifying the repository structure.
+  (`AGENTS.md`) + ADRs 001–004.
+- FastAPI application with `GET /health` (200 healthy / 503 when the DB is down).
+- PostgreSQL 16 via `docker compose up --build`, with healthchecks and a persistent
+  volume; app applies migrations on startup.
+- Core schema: `assets` + append-only `metric_observations`, with a check
+  constraint enforcing that missing data is explicit and never stored as `0`.
+- Test suite under pytest (config, health, data-quality, migration smoke) plus the
+  dependency-free foundation gate.
 
 ### Known limitations
-- No application, API, database, or Docker environment yet (Sprint 01).
-- No data providers, scoring, or pipeline yet (Sprint 02+).
+- No data providers, ingestion, scoring, divergence, valuation, or risk yet
+  (Sprint 02+).
+- No scheduler, reporting, notifications, or dashboard yet.
+- Database access is synchronous (sufficient at current scale; revisit if needed).
 
 ---
 
 ## Setup
 
-### Foundation test gate (available now, no dependencies)
+### Docker (recommended)
 
 ```bash
-python3 -m unittest discover -s tests -v
+cp .env.example .env          # configure (never commit .env)
+docker compose up --build     # starts PostgreSQL + app; app applies migrations
+curl http://localhost:8000/health
+# interactive API docs: http://localhost:8000/docs
 ```
 
-### Local development (from Sprint 01)
+### Local development
 
 ```bash
-uv sync                                         # install dependencies
-cp .env.example .env                            # configure (never commit .env)
-uv run alembic upgrade head                     # apply migrations
+uv sync --extra dev                             # install dependencies + dev tools
+cp .env.example .env                            # set POSTGRES_HOST=localhost
+uv run alembic upgrade head                     # apply migrations (needs a DB)
 uv run uvicorn alphadex.api.app:app --reload    # run the API
 ```
 
-### Docker (from Sprint 01)
+> A local PostgreSQL is required for `alembic upgrade` and a live `/health`. The
+> quickest source is the compose DB service: `docker compose up -d db`.
+
+### Foundation test gate (no dependencies)
 
 ```bash
-cp .env.example .env
-docker compose up --build
-# health check
-curl http://localhost:8000/health
+python3 -m unittest tests.test_foundation -v
 ```
 
 ---
@@ -153,12 +163,13 @@ configurable.
 
 | Command | Scope |
 |---|---|
-| `python3 -m unittest discover -s tests -v` | Foundation gate (now) |
-| `uv run pytest` | Full suite (Sprint 01+) |
-| `uv run pytest -m "not integration"` | Unit/data-quality only (Sprint 01+) |
+| `uv run pytest` | Full suite (config, health, data-quality, migration, foundation) |
+| `python3 -m unittest tests.test_foundation -v` | Dependency-free foundation gate |
+| `uv run ruff check . && uv run mypy src` | Lint + type check |
 
-Tests are deterministic and must not depend on live external APIs; providers are
-mocked with fixtures.
+Tests are deterministic and run on in-memory SQLite (no external services);
+PostgreSQL is exercised via Docker Compose. Future provider integrations are mocked
+with fixtures — tests never depend on live external APIs.
 
 ---
 
