@@ -12,6 +12,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from alphadex.models import Asset, MetricObservation
 
+# All market metrics share this namespace prefix (kept distinct from fundamentals).
+MARKET_PREFIX = "market."
+
 
 def list_assets(session: Session, *, limit: int = 100, offset: int = 0) -> list[Asset]:
     """Return a page of assets ordered by id, with their source-id mappings."""
@@ -46,16 +49,20 @@ def latest_observations(
     "Current value" is a query over the append-only history (ADR-004), not a
     stored field. Filters by asset and/or metric when provided.
     """
-    # Latest observed_at per (asset, metric, period).
-    latest = select(
-        MetricObservation.asset_id.label("asset_id"),
-        MetricObservation.metric.label("metric"),
-        MetricObservation.period.label("period"),
-        func.max(MetricObservation.observed_at).label("max_observed"),
-    ).group_by(
-        MetricObservation.asset_id,
-        MetricObservation.metric,
-        MetricObservation.period,
+    # Latest observed_at per (asset, metric, period), scoped to market metrics.
+    latest = (
+        select(
+            MetricObservation.asset_id.label("asset_id"),
+            MetricObservation.metric.label("metric"),
+            MetricObservation.period.label("period"),
+            func.max(MetricObservation.observed_at).label("max_observed"),
+        )
+        .where(MetricObservation.metric.like(f"{MARKET_PREFIX}%"))
+        .group_by(
+            MetricObservation.asset_id,
+            MetricObservation.metric,
+            MetricObservation.period,
+        )
     )
     if asset_id is not None:
         latest = latest.where(MetricObservation.asset_id == asset_id)

@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     market_universe_ids: str | None = Field(default=None)
     market_universe_top_n: int = Field(default=50)
 
+    # ── Fundamental data provider (Sprint 03) ───────────────────────────────
+    fundamental_data_provider: str = Field(default="defillama")
+    defillama_api_key: str | None = Field(default=None)
+    defillama_base_url: str = Field(default="https://api.llama.fi")
+
     @property
     def universe_ids(self) -> list[str]:
         """Parsed explicit universe ids (empty when top-N mode is used)."""

@@ -84,3 +84,53 @@ class MarketDataProvider(ABC):
         subclass on transport, rate-limit, or shape failures.
         """
         raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class RawFundamentalSnapshot:
+    """One provider observation of a protocol's economic fundamentals.
+
+    Identity fields describe the protocol; ``gecko_id`` is the provider-neutral key
+    used to join a protocol to an internal asset (never the ambiguous symbol, §13).
+    Every numeric field is ``float | None``: ``None`` means the provider did not
+    report it and it must be recorded as explicit missing-data (never ``0``,
+    ADR-003). Fees, revenue, holders-revenue, and TVL are kept strictly distinct
+    (AGENTS.md §9) and must never be derived from one another.
+    """
+
+    slug: str
+    name: str
+    gecko_id: str | None
+    symbol: str | None
+    category: str | None
+    observed_at: datetime | None
+
+    tvl_usd: float | None
+    fees_24h_usd: float | None
+    fees_7d_usd: float | None
+    fees_30d_usd: float | None
+    revenue_24h_usd: float | None
+    revenue_7d_usd: float | None
+    revenue_30d_usd: float | None
+    holders_revenue_24h_usd: float | None
+    holders_revenue_30d_usd: float | None
+
+
+class FundamentalDataProvider(ABC):
+    """Interface every protocol-fundamentals source implements.
+
+    Same failure contract as ``MarketDataProvider``: transport/shape problems become
+    ``ProviderError`` subclasses and absent values become ``None`` fields.
+    """
+
+    #: Stable short identifier stored as provenance (e.g. ``"defillama"``).
+    name: str
+
+    @abstractmethod
+    def fetch_fundamentals(self) -> list[RawFundamentalSnapshot]:
+        """Return fundamentals snapshots for the provider's tracked protocols.
+
+        Raises a ``ProviderError`` subclass on transport, rate-limit, or shape
+        failures.
+        """
+        raise NotImplementedError
