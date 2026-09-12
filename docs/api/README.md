@@ -8,9 +8,9 @@ Resources are designed per-sprint, not built speculatively. Implemented so far:
 - `GET /health` — application / database health (Sprint 01)
 - `GET /assets`, `GET /assets/{id}` — asset universe (Sprint 02)
 - `GET /market-data` — latest market observations (Sprint 02)
+- `GET /fundamentals` — latest fundamental observations (Sprint 03)
 
-Planned: `/fundamentals`, `/tokenomics`, `/opportunities`, `/scores`,
-`/divergences`, `/risk`.
+Planned: `/tokenomics`, `/opportunities`, `/scores`, `/divergences`, `/risk`.
 
 ---
 
@@ -86,6 +86,43 @@ the observation is returned with `value: null` and a non-`OK` `value_status`
 missing value as zero (ADR-003).
 
 Available market metrics are listed in `docs/data/README.md`.
+
+---
+
+## `GET /fundamentals`
+
+The most recent `fundamental.*` observation per `(asset, metric, period)` —
+protocol fees, revenue, holders-revenue, and TVL. Same response shape and
+missing-data semantics as `/market-data` (a missing metric is `value: null` with a
+non-`OK` `value_status`, never `0`). Kept separate from `/market-data` to preserve
+the domain boundary: this endpoint returns only `fundamental.*` metrics, and
+`/market-data` returns only `market.*` metrics.
+
+Query parameters (all optional):
+
+| Param      | Type | Notes                                   |
+|------------|------|-----------------------------------------|
+| `asset_id` | int  | Filter to one asset.                    |
+| `metric`   | str  | Filter to one metric, e.g. `fundamental.fees_usd.24h`. |
+
+```json
+[
+  { "asset_id": 12, "metric": "fundamental.tvl_usd",
+    "value": 30120702622.9, "value_status": "OK",
+    "unit": "USD", "period": "point",
+    "observed_at": "2026-09-12T22:10:06Z",
+    "source_provider": "defillama",
+    "source_timestamp": null, "source_status": "ok",
+    "age_seconds": 42.0 },
+  { "asset_id": 12, "metric": "fundamental.revenue_usd.24h",
+    "value": null, "value_status": "NOT_AVAILABLE",
+    "unit": "USD", "period": "24h", "observed_at": "2026-09-12T22:10:06Z",
+    "source_provider": "defillama", "source_status": "ok", "age_seconds": 42.0 }
+]
+```
+
+Fees, Revenue, Holders Revenue, and TVL are **distinct metrics** and are never
+conflated. The full list is in `docs/data/README.md`.
 
 ---
 

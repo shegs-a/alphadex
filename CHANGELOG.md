@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.3.0] — 2026-09-12
+
+### Added
+- Fundamental Intelligence (Sprint 03):
+  - `FundamentalDataProvider` interface + `RawFundamentalSnapshot` DTO (reusing the
+    provider error hierarchy) and a **DefiLlama** adapter assembling TVL, fees,
+    revenue, and holders-revenue from `/protocols` and `/overview/fees` (joined by
+    protocol slug, deduplicated by `gecko_id` keeping the largest-TVL
+    representative). Provider factory extended.
+  - Normalization into distinct `fundamental.*` metrics — `tvl_usd`, `fees_usd.*`,
+    `revenue_usd.*`, `holders_revenue_usd.*` — with units, periods, and provenance.
+    Fees ≠ Revenue ≠ Holders Revenue ≠ TVL are kept strictly distinct and never
+    derived from one another; absent values are `NOT_AVAILABLE`, never `0`.
+  - Ingestion service that matches protocols to assets **already in the universe**
+    by `gecko_id` (Phase 1), skips and counts unmatched protocols, attaches a
+    `defillama` source id to the matched asset, optionally fills an unknown asset
+    category, isolates per-protocol failures (SAVEPOINT), and records an
+    `ingestion_runs` row.
+  - Read-only `GET /fundamentals` (latest `fundamental.*` observation per
+    asset/metric/period, with `value_status`, provenance, and freshness).
+  - `scripts/ingest_fundamentals.py` one-shot ingestion; DefiLlama configuration in
+    `config.py` and `.env.example`.
+
+### Changed
+- `/market-data` is now scoped to the `market.*` namespace so it never returns
+  `fundamental.*` observations (clean domain separation as the two domains share
+  `metric_observations`).
+
+### Notes
+- No schema change — fundamentals reuse `metric_observations`, `asset_source_ids`,
+  and `ingestion_runs`.
+- Verified end-to-end on Docker + PostgreSQL 16 with live DefiLlama: 2,367
+  protocols fetched, 35 matched to the top-100 market universe by `gecko_id`, 2,332
+  skipped, 315 observations written; `/fundamentals` returned real fees/revenue/TVL
+  with unreported metrics as `NOT_AVAILABLE`. Full suite: 63 tests; ruff and mypy
+  clean.
+
 ## [0.2.0] — 2026-09-12
 
 ### Added

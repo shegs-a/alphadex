@@ -65,6 +65,45 @@ be conflated with them (AGENTS.md §9). Each observation records its `unit`,
 > evidence of improving fundamentals — that distinction is the whole point of the
 > system (AGENTS.md §1).
 
+---
+
+## Fundamental metrics (Sprint 03)
+
+Fundamental metrics live under the `fundamental.*` namespace and describe a
+**protocol's economics** — the "is the protocol becoming stronger?" signal. They
+are kept **strictly distinct** from one another and from `market.*` price data:
+**Fees ≠ Revenue ≠ Holders Revenue ≠ TVL ≠ Price** (AGENTS.md §9). They are never
+summed, averaged, or derived from one another.
+
+| Metric                                   | Unit | Period | Meaning |
+|------------------------------------------|------|--------|---------|
+| `fundamental.tvl_usd`                    | USD  | point  | Total value locked in the protocol. |
+| `fundamental.fees_usd.24h`               | USD  | 24h    | Total fees paid by users over the trailing 24h. |
+| `fundamental.fees_usd.7d`                | USD  | 7d     | Total fees over the trailing 7 days. |
+| `fundamental.fees_usd.30d`               | USD  | 30d    | Total fees over the trailing 30 days. |
+| `fundamental.revenue_usd.24h`            | USD  | 24h    | Revenue kept by the protocol over 24h (a subset of fees). |
+| `fundamental.revenue_usd.7d`             | USD  | 7d     | Protocol revenue over 7 days. |
+| `fundamental.revenue_usd.30d`            | USD  | 30d    | Protocol revenue over 30 days. |
+| `fundamental.holders_revenue_usd.24h`    | USD  | 24h    | Revenue directed to token holders over 24h. |
+| `fundamental.holders_revenue_usd.30d`    | USD  | 30d    | Holders-revenue over 30 days. |
+
+> **Fees** are what users pay; **Revenue** is the portion the protocol keeps;
+> **Holders Revenue** is the portion routed to token holders. A protocol can have
+> large fees but little revenue, or revenue that does not reach holders — those are
+> exactly the distinctions that determine whether protocol strength accrues to the
+> token (AGENTS.md §1, distinctions #1–#2). Many protocols report some of these but
+> not others; the unreported ones are stored as `NOT_AVAILABLE`, never `0`.
+
+### Asset ↔ protocol matching (Phase 1)
+
+Fundamentals are matched to assets **already in the market universe** by
+`gecko_id` — the provider-neutral key that a DefiLlama protocol shares with its
+CoinGecko listing. The matched protocol adds a `(provider="defillama",
+external_id=<slug>)` row to `asset_source_ids` pointing to the **same** asset.
+Protocols with no in-universe match (or no `gecko_id`) are **skipped and counted**,
+not force-created — so every asset carrying fundamentals also has market data.
+Broadening coverage to unmatched protocols is deferred to a later version.
+
 ### Provenance
 
 Each observation stores `source_provider` (e.g. `coingecko`), `source_timestamp`
@@ -76,7 +115,12 @@ Freshness is derived from `observed_at` at read time and exposed by the API as
 
 ## Providers
 
-Market data is fetched behind the `MarketDataProvider` interface; the first
-concrete provider is **CoinGecko** (`/coins/markets`). A provider's wire shape
-never leaves its adapter — everything downstream sees the provider-agnostic
-`RawMarketSnapshot`, which normalization maps into the metrics above.
+Data is fetched behind provider interfaces; a provider's wire shape never leaves
+its adapter — everything downstream sees a provider-agnostic snapshot, which
+normalization maps into the metrics above.
+
+- **Market data** — `MarketDataProvider`, first concrete provider **CoinGecko**
+  (`/coins/markets`) → `RawMarketSnapshot` → `market.*` metrics.
+- **Fundamentals** — `FundamentalDataProvider`, first concrete provider
+  **DefiLlama** (`/protocols` + `/overview/fees`) → `RawFundamentalSnapshot` →
+  `fundamental.*` metrics.

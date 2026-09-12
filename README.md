@@ -91,14 +91,16 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 02 — Market Data Foundation.**
+**Sprint 03 — Fundamental Intelligence.**
 
-On top of the Sprint 01 platform, the first real data pipeline: market data is
-fetched from an external provider **behind an interface** (`MarketDataProvider`),
-validated, normalized into append-only `metric_observations` with explicit
-missing-data and full provenance, and served through read-only `/assets` and
-`/market-data` endpoints. Ingestion is a one-shot command; a single asset's
-failure is isolated and recorded, never aborting the run.
+On top of the market-data pipeline, the system now ingests **protocol
+fundamentals** (fees, revenue, holders-revenue, TVL) from a second provider
+(DefiLlama) behind a `FundamentalDataProvider` interface. Protocols are matched to
+assets already in the universe **strictly by `gecko_id`** (Phase 1 — unmatched
+protocols are skipped and counted), normalized into distinct `fundamental.*`
+observations with explicit missing-data and provenance, and served through a
+read-only `/fundamentals` endpoint. Fees, Revenue, Holders-Revenue, and TVL are
+kept strictly distinct and are never conflated with each other or with price.
 
 ### Current capabilities
 - Documented mission, architecture principles, and coding/data/scoring rules
@@ -109,19 +111,26 @@ failure is isolated and recorded, never aborting the run.
 - Core schema: `assets` + append-only `metric_observations` (missing data always
   explicit, never `0`), plus `asset_source_ids` (symbol-collision-safe identity)
   and `ingestion_runs` (run-level observability).
-- **Market data provider abstraction** with a CoinGecko adapter; normalization
-  into internal `market.*` metrics (price, market cap, FDV, volume, supply, price
-  change, rank) with units, periods, and provenance.
-- **Ingestion command** (`scripts/ingest_market_data.py`) over a configurable
-  universe; **read API** `GET /assets`, `GET /assets/{id}`, `GET /market-data`.
-- Test suite under pytest (config, health, data-quality, migration, provider,
-  normalization, ingestion service, API) plus the dependency-free foundation gate.
+- **Two provider abstractions:** a CoinGecko adapter for `market.*` metrics
+  (price, market cap, FDV, volume, supply, price change, rank) and a DefiLlama
+  adapter for `fundamental.*` metrics (fees, revenue, holders-revenue, TVL) — each
+  with units, periods, and provenance.
+- **Ingestion commands** — `scripts/ingest_market_data.py` (configurable universe)
+  and `scripts/ingest_fundamentals.py` (protocols matched by `gecko_id`).
+- **Read API** — `GET /assets`, `GET /assets/{id}`, `GET /market-data`,
+  `GET /fundamentals`.
+- Test suite under pytest (config, health, data-quality, migration, providers,
+  normalization, ingestion services, API) plus the dependency-free foundation gate.
 
 ### Known limitations
-- One market-data provider (CoinGecko). No fundamentals, tokenomics, scoring,
-  divergence, valuation, or risk yet (Sprint 03+).
-- No background scheduler: ingestion is run on demand (periodic scheduling is a
-  later sprint). No reporting, notifications, or dashboard yet.
+- Two providers (CoinGecko, DefiLlama). No tokenomics, scoring, divergence,
+  valuation, or risk yet (Sprint 04+) — in particular, **computing divergence**
+  between fundamentals and price is Sprint 05.
+- Fundamentals cover only assets already in the market universe (Phase 1 matches by
+  `gecko_id`; protocols with no in-universe match are skipped — broadening this is
+  deferred to a later version).
+- No background scheduler: ingestion is run on demand. No reporting, notifications,
+  or dashboard yet.
 - Database and provider access are synchronous (sufficient at current scale).
 
 ---
@@ -140,6 +149,10 @@ curl http://localhost:8000/health
 docker compose exec app python scripts/ingest_market_data.py --ids bitcoin,ethereum,solana
 curl http://localhost:8000/assets
 curl "http://localhost:8000/market-data?metric=market.price_usd"
+
+# ingest protocol fundamentals (matched to the assets above by gecko_id):
+docker compose exec app python scripts/ingest_fundamentals.py
+curl "http://localhost:8000/fundamentals?metric=fundamental.tvl_usd"
 ```
 
 ### Local development
@@ -150,6 +163,7 @@ cp .env.example .env                            # set POSTGRES_HOST=localhost
 uv run alembic upgrade head                     # apply migrations (needs a DB)
 uv run uvicorn alphadex.api.app:app --reload    # run the API
 uv run python scripts/ingest_market_data.py --top-n 25   # ingest market data
+uv run python scripts/ingest_fundamentals.py             # then ingest fundamentals
 ```
 
 > A local PostgreSQL is required for `alembic upgrade` and a live `/health`. The
