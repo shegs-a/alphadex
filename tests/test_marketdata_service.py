@@ -171,9 +171,10 @@ def test_per_asset_failure_is_isolated(
     # The failed asset was rolled back entirely — no orphan Asset/source id.
     assets = session.execute(select(Asset)).scalars().all()
     assert [a.symbol for a in assets] == ["GOOD"]
-    assert session.execute(
-        select(func.count()).select_from(AssetSourceId)
-    ).scalar_one() == 1
+    assert (
+        session.execute(select(func.count()).select_from(AssetSourceId)).scalar_one()
+        == 1
+    )
 
 
 def test_provider_failure_records_failed_run(session: Session) -> None:

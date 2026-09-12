@@ -101,9 +101,7 @@ class MarketDataService:
             # half-ingested asset behind (§8, data integrity §18).
             try:
                 with self._session.begin_nested():
-                    written = self._ingest_snapshot(
-                        snapshot, ingested_at=ingested_at
-                    )
+                    written = self._ingest_snapshot(snapshot, ingested_at=ingested_at)
                 observations_written += written
                 assets_ok += 1
             except Exception as exc:  # isolate one asset's failure (§8)

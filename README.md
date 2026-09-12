@@ -91,14 +91,14 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 01 — Platform Foundation.**
+**Sprint 02 — Market Data Foundation.**
 
-The engineering foundation (Sprint 00) plus a working, testable, Dockerized
-application skeleton: a FastAPI service with a `/health` endpoint that reports
-application and database health, PostgreSQL via Docker Compose, SQLAlchemy 2.0 +
-Alembic migrations, env-driven configuration, and structured logging. The core
-persistence schema encodes the ADR-003 (missing-data) and ADR-004 (observations)
-contracts.
+On top of the Sprint 01 platform, the first real data pipeline: market data is
+fetched from an external provider **behind an interface** (`MarketDataProvider`),
+validated, normalized into append-only `metric_observations` with explicit
+missing-data and full provenance, and served through read-only `/assets` and
+`/market-data` endpoints. Ingestion is a one-shot command; a single asset's
+failure is isolated and recorded, never aborting the run.
 
 ### Current capabilities
 - Documented mission, architecture principles, and coding/data/scoring rules
@@ -106,16 +106,23 @@ contracts.
 - FastAPI application with `GET /health` (200 healthy / 503 when the DB is down).
 - PostgreSQL 16 via `docker compose up --build`, with healthchecks and a persistent
   volume; app applies migrations on startup.
-- Core schema: `assets` + append-only `metric_observations`, with a check
-  constraint enforcing that missing data is explicit and never stored as `0`.
-- Test suite under pytest (config, health, data-quality, migration smoke) plus the
-  dependency-free foundation gate.
+- Core schema: `assets` + append-only `metric_observations` (missing data always
+  explicit, never `0`), plus `asset_source_ids` (symbol-collision-safe identity)
+  and `ingestion_runs` (run-level observability).
+- **Market data provider abstraction** with a CoinGecko adapter; normalization
+  into internal `market.*` metrics (price, market cap, FDV, volume, supply, price
+  change, rank) with units, periods, and provenance.
+- **Ingestion command** (`scripts/ingest_market_data.py`) over a configurable
+  universe; **read API** `GET /assets`, `GET /assets/{id}`, `GET /market-data`.
+- Test suite under pytest (config, health, data-quality, migration, provider,
+  normalization, ingestion service, API) plus the dependency-free foundation gate.
 
 ### Known limitations
-- No data providers, ingestion, scoring, divergence, valuation, or risk yet
-  (Sprint 02+).
-- No scheduler, reporting, notifications, or dashboard yet.
-- Database access is synchronous (sufficient at current scale; revisit if needed).
+- One market-data provider (CoinGecko). No fundamentals, tokenomics, scoring,
+  divergence, valuation, or risk yet (Sprint 03+).
+- No background scheduler: ingestion is run on demand (periodic scheduling is a
+  later sprint). No reporting, notifications, or dashboard yet.
+- Database and provider access are synchronous (sufficient at current scale).
 
 ---
 
@@ -128,6 +135,11 @@ cp .env.example .env          # configure (never commit .env)
 docker compose up --build     # starts PostgreSQL + app; app applies migrations
 curl http://localhost:8000/health
 # interactive API docs: http://localhost:8000/docs
+
+# ingest market data (one-shot), then read it back:
+docker compose exec app python scripts/ingest_market_data.py --ids bitcoin,ethereum,solana
+curl http://localhost:8000/assets
+curl "http://localhost:8000/market-data?metric=market.price_usd"
 ```
 
 ### Local development
@@ -137,6 +149,7 @@ uv sync --extra dev                             # install dependencies + dev too
 cp .env.example .env                            # set POSTGRES_HOST=localhost
 uv run alembic upgrade head                     # apply migrations (needs a DB)
 uv run uvicorn alphadex.api.app:app --reload    # run the API
+uv run python scripts/ingest_market_data.py --top-n 25   # ingest market data
 ```
 
 > A local PostgreSQL is required for `alembic upgrade` and a live `/health`. The
@@ -163,13 +176,13 @@ configurable.
 
 | Command | Scope |
 |---|---|
-| `uv run pytest` | Full suite (config, health, data-quality, migration, foundation) |
+| `uv run pytest` | Full suite (config, health, data-quality, migration, providers, normalization, ingestion, API, foundation) |
 | `python3 -m unittest tests.test_foundation -v` | Dependency-free foundation gate |
 | `uv run ruff check . && uv run mypy src` | Lint + type check |
 
 Tests are deterministic and run on in-memory SQLite (no external services);
-PostgreSQL is exercised via Docker Compose. Future provider integrations are mocked
-with fixtures — tests never depend on live external APIs.
+PostgreSQL is exercised via Docker Compose. Provider integrations are stubbed with
+`httpx.MockTransport` and JSON fixtures — tests never depend on live external APIs.
 
 ---
 

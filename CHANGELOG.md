@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.2.0] — 2026-09-12
+
+### Added
+- Market Data Foundation (Sprint 02):
+  - `MarketDataProvider` interface, `RawMarketSnapshot` DTO, and a typed provider
+    error hierarchy (`ProviderError`/`ProviderUnavailable`/`RateLimited`/
+    `MalformedResponse`) — business logic depends only on the interface.
+  - `CoinGeckoProvider` adapter (httpx; injectable client for offline tests) and
+    a config-driven provider factory.
+  - Normalization from raw snapshots into append-only `metric_observations` under
+    a `market.*` metric namespace (price, market cap, FDV, volume, supply, price
+    change %, rank) with units, periods, and provenance. Absent values are stored
+    as an explicit `ValueStatus` (e.g. `NOT_AVAILABLE`), never `0` (ADR-003).
+  - Ingestion service with per-asset SAVEPOINT isolation (one asset's failure is
+    recorded and skipped, never aborting the run) and an `ingestion_runs` record.
+  - `asset_source_ids` mapping `(provider, external_id)` → internal asset, so
+    symbol collisions cannot merge distinct assets (AGENTS.md §13).
+  - Alembic migration `0002` (additive, reversible) for the two new tables.
+  - Read-only API: `GET /assets`, `GET /assets/{id}`, `GET /market-data`
+    (surfacing `value_status`, provenance, and freshness — missing data as a
+    status, never `0`).
+  - `scripts/ingest_market_data.py` one-shot ingestion command over a configurable
+    universe (`--ids` / `--top-n`); the Dockerfile now ships `scripts/`.
+  - Provider/universe configuration in `config.py` and `.env.example`.
+
+### Notes
+- Verified end-to-end on Docker + PostgreSQL 16: migration `0002` applies, a live
+  CoinGecko ingestion of three assets wrote 33 observations, and `/market-data`
+  returned real values with unavailable metrics (e.g. ETH/SOL `max_supply`) as
+  `NOT_AVAILABLE` rather than `0`. Full suite: 43 tests; ruff and mypy clean.
+
 ## [0.1.0] — 2026-09-06
 
 ### Added
