@@ -30,11 +30,16 @@ _Work toward the next release. Move entries under a version heading on release._
 - Foundation gate invocation is now `python3 -m unittest tests.test_foundation`
   (not `unittest discover`), with `uv run pytest` as the canonical test runner.
 
+### Fixed
+- `Dockerfile` now copies `README.md` into the image. `pyproject.toml` declares
+  `readme = "README.md"`, so installing the project (`uv sync`) failed the image
+  build without it. This closes the Sprint 01 container gate.
+
 ### Notes
-- First working, runnable platform. Docker/PostgreSQL container startup was not
-  executed in the build session (no Docker daemon); the app + migrations were
-  verified end-to-end against a real database engine. Run `docker compose up
-  --build` on a Docker-capable host to confirm the container path.
+- First working, runnable platform, verified end-to-end via `docker compose up
+  --build` on Docker Desktop: the image builds, PostgreSQL 16 becomes healthy,
+  Alembic migration `0001` applies, and `GET /health` returns
+  `200 {"status":"ok","checks":{"application":"ok","database":"ok"}}`.
 
 ## [0.0.0] — 2026-09-06
 

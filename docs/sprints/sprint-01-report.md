@@ -33,8 +33,11 @@ core persistence schema encoding ADR-003 and ADR-004.
 
 ## Incomplete tasks
 
-- Docker build/compose could not be executed in this session (no Docker daemon —
-  see Known limitations). Compose file validated with `docker compose config`.
+- None. The container gate was initially deferred (no Docker daemon in the build
+  session) and has since been closed: `docker compose up --build` was run on
+  Docker Desktop (Windows) — the image builds, PostgreSQL 16 becomes healthy,
+  migration `0001` applies, and `/health` returns 200 (see "Bugs discovered /
+  fixed" and "Release/version created").
 
 ## Files/modules changed
 
@@ -94,16 +97,21 @@ uv run alembic upgrade head                # against a real (SQLite) DB
   Python (no deps) and failing. Fixed by making the dependency-free gate a targeted
   module invocation (`python3 -m unittest tests.test_foundation`) and documenting
   `uv run pytest` as the canonical runner. No product code affected.
+- **Docker image build failed** on the project-install step (`uv sync --frozen
+  --no-dev`): `pyproject.toml` declares `readme = "README.md"`, but the `Dockerfile`
+  did not copy `README.md` into the image, so hatchling raised `OSError: Readme file
+  does not exist: README.md`. Latent because Docker was never run in the build
+  session. Fixed by adding `COPY README.md ./README.md` before the project install.
+  After the fix the full container path succeeds end-to-end.
 
 ## Known limitations
 
-- **Docker not executed in this session:** no Docker daemon/socket is available in
-  the remote environment, so `docker compose up --build` was not run here. The
-  compose file validates (`docker compose config`), and the app + migrations were
-  verified end-to-end against a real database engine (SQLite). PostgreSQL-specific
-  and container startup verification should be completed by running
-  `docker compose up --build` on a machine with Docker (the intended local/VM
-  target).
+- **Docker now verified:** `docker compose up --build` was subsequently run on
+  Docker Desktop (Windows). Both containers report healthy, migration `0001`
+  applies against PostgreSQL 16, and `GET /health` returns
+  `200 {"status":"ok","checks":{"application":"ok","database":"ok"}}`. This closed
+  the container gate that was open at the end of the build session (one build bug
+  was found and fixed — see "Bugs discovered / fixed").
 - Database access is synchronous (adequate at current scale).
 - No providers/ingestion/scoring yet (Sprint 02+).
 
@@ -129,13 +137,13 @@ ADR-003 (missing-data check constraint), ADR-004 (append-only observations).
 
 ## Release/version created
 
-- Target version: **v0.1.0** (first working platform foundation).
-- Commit: on branch `claude/resume-session-devices-ibdww4`.
-- Tag/Release: to be created as `v0.1.0` at the release commit. As in Sprint 00,
-  the session's git credential is branch-scoped and cannot push `refs/tags/*`, and
-  no release-creation MCP tool is available; the repository owner should create the
-  `v0.1.0` tag/release via the GitHub UI (or `git tag` from an unscoped clone)
-  targeting the release commit once pushed.
+- Version: **v0.1.0** (first working, container-verified platform foundation).
+- Commit: release commit on branch `claude/resume-session-devices-ibdww4`, which
+  includes the `Dockerfile` `README.md` fix that closes the container gate.
+- Tag/Release: annotated tag `v0.1.0` created at the release commit (this replaces
+  the earlier plan to defer tagging to the owner — the tag was cut locally once the
+  full release gate passed on real PostgreSQL). See the session for push status; a
+  GitHub Release can be published from this tag via the UI if desired.
 
 ## Rollback procedure
 

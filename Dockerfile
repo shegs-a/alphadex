@@ -19,10 +19,12 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-# Application source + migrations.
+# Application source + migrations. README.md is required because pyproject.toml
+# declares it as the project readme, and building/installing the project reads it.
 COPY src ./src
 COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
+COPY README.md ./README.md
 
 # Install the project itself into the environment.
 RUN uv sync --frozen --no-dev
