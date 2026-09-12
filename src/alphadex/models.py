@@ -14,6 +14,8 @@ import enum
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -234,4 +236,94 @@ class IngestionRun(Base):
         return (
             f"<IngestionRun id={self.id} provider={self.provider!r} "
             f"status={self.status!r}>"
+        )
+
+
+class ScanRun(Base):
+    """One run of the Opportunity Scanner (Sprint 04).
+
+    A scan is the cheap, broad screen at the top of the tiered pipeline (§9). The
+    config (thresholds/weights) used is snapshotted here so a scan's results are
+    reproducible and auditable (explainability §10; ADR-004 spirit).
+    """
+
+    __tablename__ = "scan_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # running | success | failed
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    universe_size: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    candidate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Snapshot of the screen configuration used (thresholds + weights).
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    results: Mapped[list[ScanResult]] = relationship(
+        back_populates="scan_run", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<ScanRun id={self.id} status={self.status!r}>"
+
+
+class ScanResult(Base):
+    """One asset's outcome in a scan.
+
+    ``status`` is the classification; ``screen_score`` is a **preliminary** ordering
+    score (never the Alpha Score). ``data_completeness`` records how much of the
+    scored signal was actually available — poor data never masquerades as a strong
+    signal (§10). ``reasons`` holds the human-readable per-criterion breakdown
+    (explanatory metadata only; decision fields are typed columns — §9). A missing
+    score is ``NULL`` with a status explaining why, never ``0`` (ADR-003).
+    """
+
+    __tablename__ = "scan_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scan_run_id: Mapped[int] = mapped_column(
+        ForeignKey("scan_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # candidate | watch | insufficient_data | excluded
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    screen_score: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    data_completeness: Mapped[float | None] = mapped_column(
+        Numeric(5, 4), nullable=True
+    )
+    reasons: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    scan_run: Mapped[ScanRun] = relationship(back_populates="results")
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        Index("ix_scan_results_run", "scan_run_id"),
+        Index("ix_scan_results_asset", "asset_id"),
+        UniqueConstraint("scan_run_id", "asset_id", name="uq_scan_result_run_asset"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<ScanResult run={self.scan_run_id} asset={self.asset_id} "
+            f"status={self.status!r} rank={self.rank}>"
         )

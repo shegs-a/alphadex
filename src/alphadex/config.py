@@ -52,6 +52,22 @@ class Settings(BaseSettings):
     defillama_api_key: str | None = Field(default=None)
     defillama_base_url: str = Field(default="https://api.llama.fi")
 
+    # ── Opportunity Scanner (Sprint 04) ─────────────────────────────────────
+    # Inclusion gates (configurable — never hard-coded, §2/§10).
+    scan_market_cap_min: float = Field(default=10_000_000.0)
+    scan_market_cap_max: float | None = Field(default=None)
+    scan_min_volume_24h: float = Field(default=100_000.0)
+    scan_freshness_max_hours: float = Field(default=48.0)
+    # When true, an asset with no fundamentals is insufficient_data (not a candidate).
+    scan_require_fundamentals: bool = Field(default=False)
+    # Normalization references for the (log-scaled) signals.
+    scan_ref_fees_30d: float = Field(default=100_000_000.0)
+    scan_ref_volume_24h: float = Field(default=1_000_000_000.0)
+    # Preliminary Screen Score weights (must sum to 1.0; NOT the Alpha Score).
+    scan_weight_activity: float = Field(default=0.4)
+    scan_weight_liquidity: float = Field(default=0.3)
+    scan_weight_momentum: float = Field(default=0.3)
+
     @property
     def universe_ids(self) -> list[str]:
         """Parsed explicit universe ids (empty when top-N mode is used)."""
