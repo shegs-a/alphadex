@@ -19,8 +19,10 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -87,8 +89,49 @@ class Asset(Base):
         Index("ix_assets_symbol", "symbol"),
     )
 
+    source_ids: Mapped[list[AssetSourceId]] = relationship(
+        back_populates="asset", cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"<Asset id={self.id} symbol={self.symbol!r}>"
+
+
+class AssetSourceId(Base):
+    """Maps a provider's own asset id to an internal ``Asset`` (AGENTS.md §13).
+
+    Asset identity is resolved by ``(provider, external_id)``, never by the
+    ambiguous symbol — so symbol collisions and duplicate listings across
+    providers cannot merge two distinct assets.
+    """
+
+    __tablename__ = "asset_source_ids"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(128), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    asset: Mapped[Asset] = relationship(back_populates="source_ids")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "external_id", name="uq_asset_source_provider_external"
+        ),
+        Index("ix_asset_source_asset", "asset_id"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<AssetSourceId asset_id={self.asset_id} provider={self.provider!r} "
+            f"external_id={self.external_id!r}>"
+        )
 
 
 class MetricObservation(Base):
@@ -152,4 +195,43 @@ class MetricObservation(Base):
         return (
             f"<MetricObservation asset_id={self.asset_id} metric={self.metric!r} "
             f"status={self.value_status.value}>"
+        )
+
+
+class IngestionRun(Base):
+    """Run-level record of one ingestion cycle (AGENTS.md §8 observability).
+
+    Makes provider failures and partial runs observable rather than silent: how
+    many assets succeeded, how many failed, how many observations were written.
+    """
+
+    __tablename__ = "ingestion_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    # running | success | partial | failed
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    assets_ok: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    assets_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    observations_written: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<IngestionRun id={self.id} provider={self.provider!r} "
+            f"status={self.status!r}>"
         )

@@ -48,7 +48,12 @@ def test_migration_creates_and_drops_tables(sqlite_db_url: str) -> None:
     command.upgrade(cfg, "head")
     engine = create_engine(sqlite_db_url)
     tables = set(inspect(engine).get_table_names())
-    assert {"assets", "metric_observations"}.issubset(tables)
+    assert {
+        "assets",
+        "metric_observations",
+        "asset_source_ids",
+        "ingestion_runs",
+    }.issubset(tables)
     engine.dispose()
 
     command.downgrade(cfg, "base")
@@ -56,4 +61,6 @@ def test_migration_creates_and_drops_tables(sqlite_db_url: str) -> None:
     tables = set(inspect(engine).get_table_names())
     assert "assets" not in tables
     assert "metric_observations" not in tables
+    assert "asset_source_ids" not in tables
+    assert "ingestion_runs" not in tables
     engine.dispose()

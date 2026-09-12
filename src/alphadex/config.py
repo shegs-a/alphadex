@@ -36,6 +36,24 @@ class Settings(BaseSettings):
     postgres_host: str = Field(default="localhost")
     postgres_port: int = Field(default=5432)
 
+    # ── Market data provider (Sprint 02) ────────────────────────────────────
+    market_data_provider: str = Field(default="coingecko")
+    coingecko_api_key: str | None = Field(default=None)
+    coingecko_base_url: str = Field(default="https://api.coingecko.com/api/v3")
+    provider_timeout_seconds: float = Field(default=20.0)
+
+    # Asset universe (configurable, never hard-coded — AGENTS.md §2). An explicit
+    # comma-separated list of provider ids wins; otherwise the top-N by market cap.
+    market_universe_ids: str | None = Field(default=None)
+    market_universe_top_n: int = Field(default=50)
+
+    @property
+    def universe_ids(self) -> list[str]:
+        """Parsed explicit universe ids (empty when top-N mode is used)."""
+        if not self.market_universe_ids:
+            return []
+        return [p.strip() for p in self.market_universe_ids.split(",") if p.strip()]
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def sqlalchemy_url(self) -> str:

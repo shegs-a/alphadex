@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from alphadex import __version__
-from alphadex.api.routes import health
+from alphadex.api.routes import assets, health, market_data
 from alphadex.config import get_settings
 from alphadex.logging import configure_logging
 
@@ -20,6 +20,8 @@ def create_app() -> FastAPI:
         summary="Crypto Alpha Intelligence System — Ciphercrib Solutions",
     )
     app.include_router(health.router)
+    app.include_router(assets.router)
+    app.include_router(market_data.router)
     return app
 
 

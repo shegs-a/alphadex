@@ -23,6 +23,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 # declares it as the project readme, and building/installing the project reads it.
 COPY src ./src
 COPY migrations ./migrations
+COPY scripts ./scripts
 COPY alembic.ini ./alembic.ini
 COPY README.md ./README.md
 

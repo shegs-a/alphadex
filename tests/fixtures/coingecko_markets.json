@@ -1,0 +1,36 @@
+[
+  {
+    "id": "bitcoin",
+    "symbol": "btc",
+    "name": "Bitcoin",
+    "current_price": 61234.5,
+    "market_cap": 1203456789012,
+    "fully_diluted_valuation": 1287654321098,
+    "total_volume": 34567890123,
+    "circulating_supply": 19750000.0,
+    "total_supply": 21000000.0,
+    "max_supply": 21000000.0,
+    "price_change_percentage_24h": 1.23,
+    "price_change_percentage_7d_in_currency": -2.5,
+    "price_change_percentage_30d_in_currency": 8.9,
+    "market_cap_rank": 1,
+    "last_updated": "2026-09-12T12:00:00.000Z"
+  },
+  {
+    "id": "ethereum",
+    "symbol": "eth",
+    "name": "Ethereum",
+    "current_price": 2456.78,
+    "market_cap": 295123456789,
+    "fully_diluted_valuation": null,
+    "total_volume": 12345678901,
+    "circulating_supply": 120100000.0,
+    "total_supply": 120100000.0,
+    "max_supply": null,
+    "price_change_percentage_24h": -0.75,
+    "price_change_percentage_7d_in_currency": 3.1,
+    "price_change_percentage_30d_in_currency": null,
+    "market_cap_rank": 2,
+    "last_updated": "2026-09-12T12:00:00.000Z"
+  }
+]
