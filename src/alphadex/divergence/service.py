@@ -16,12 +16,21 @@ from sqlalchemy.orm import Session
 
 from alphadex.divergence import repository
 from alphadex.divergence.config import DivergenceConfig
-from alphadex.divergence.engine import CLASS_DIVERGENCE, DivergenceOutcome, evaluate
+from alphadex.divergence.engine import (
+    CLASS_DIVERGENCE,
+    CLASS_POTENTIAL_MISPRICING,
+    DivergenceOutcome,
+    evaluate,
+)
 from alphadex.divergence.inputs import AssetSeries
 from alphadex.logging import get_logger
 from alphadex.models import DivergenceRun, DivergenceSignal
 
 logger = get_logger(__name__)
+
+# The classifications counted as genuine divergence opportunities (not repricing/
+# momentum/weakening/watch). Ranking is a separate, measurement-only concern.
+_OPPORTUNITY_CLASSES = (CLASS_POTENTIAL_MISPRICING, CLASS_DIVERGENCE)
 
 
 @dataclass(frozen=True)
@@ -63,7 +72,7 @@ class DivergenceService:
                     self._persist_signal(run.id, asset_id, outcome)
                 outcomes.append((asset_id, outcome))
                 analyzed += 1
-                if outcome.classification == CLASS_DIVERGENCE:
+                if outcome.classification in _OPPORTUNITY_CLASSES:
                     divergences += 1
             except Exception as exc:  # isolate one asset's failure (§8)
                 failed += 1
@@ -103,9 +112,12 @@ class DivergenceService:
                 asset_id=asset_id,
                 classification=outcome.classification,
                 divergence_score=outcome.divergence_score,
+                divergence_gap=outcome.divergence_gap,
+                signal_strength=outcome.signal_strength,
                 fundamentals_trend=outcome.fundamentals_trend,
                 price_trend=outcome.price_trend,
                 valuation_trend=outcome.valuation_trend,
+                valuation_level=outcome.valuation_level,
                 window=outcome.window,
                 method=outcome.method,
                 data_quality=outcome.data_quality,

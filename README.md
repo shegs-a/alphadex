@@ -91,20 +91,24 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 05 — Economic Divergence Engine.**
+**Sprint 05.1 — Economic Divergence Engine (refined).**
 
 The heart of the thesis: detecting where a protocol's **fundamentals are improving
 faster than the market's price/valuation recognizes**. For each candidate the
 Scanner surfaces, the engine computes a fundamentals trend and a price/valuation
 trend — from provider growth windows today (Track A) and, as history accumulates,
-from the append-only observation history (Track B, preferred) — measures the gap,
-classifies the signal (`fundamental_divergence` / `watch` / `thesis_weakening` /
-`insufficient_data`), and persists an **explainable** record (what changed, why now,
-what supports/contradicts/invalidates it, the major risk) with an honest
-`data_quality` figure. Results are served read-only via `/divergences`. It is a
-**component**, not the final verdict — the real Alpha/Risk/Confidence scoring comes
-later; there is no blind BUY language and thin data is surfaced honestly, never
-fabricated.
+from the append-only observation history (Track B, preferred) — and **measures** the
+gap. Crucially, it then **interprets** that measurement by the price regime,
+distinguishing genuine divergence from repricing/momentum (ADR-005):
+`potential_mispricing`, `fundamental_divergence`, `fundamental_repricing`,
+`momentum`, `thesis_weakening`, `watch`, `insufficient_data`. Each signal keeps its
+measurement (`divergence_gap`, `divergence_score`, `signal_strength`) separate from
+its `data_quality`, and carries **explainable** evidence (what changed, why now,
+supports/contradicts/invalidates, major risk, evidence strength). Results are served
+read-only via `/divergences`. It is a **component**, not the final verdict — the real
+Alpha/Risk/Confidence scoring comes later; ranking is a preliminary
+divergence-measurement ranking, not an opportunity ranking; there is no blind BUY
+language and thin data is surfaced honestly, never fabricated.
 
 ### Current capabilities
 - Documented mission, architecture principles, and coding/data/scoring rules

@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.5.1] — 2026-09-13
+
+### Changed
+- Divergence Engine refinement (Sprint 05.1) — distinguish genuine divergence from
+  repricing/momentum (see `docs/decisions/ADR-005`):
+  - **Measurement vs. interpretation are now separate.** The signed economic-price
+    gap is a *measurement*; a positive gap no longer implies an opportunity.
+  - **Semantic classifications** replace the single gap-sign test:
+    `potential_mispricing`, `fundamental_divergence`, `fundamental_repricing`,
+    `momentum`, `thesis_weakening`, `watch`, `insufficient_data`. Classification now
+    reads the **price regime** (materiality floor, a stagnant/declining ceiling, and
+    an "already repriced" marker) — configurable, documented heuristics, not a single
+    hard-coded cutoff.
+  - **Distinct measurement fields** added: `divergence_gap` (raw `ft − pt`),
+    `signal_strength` (magnitude), and `valuation_level` (the multiple), alongside
+    the existing trends/score/data-quality. No field is collapsed into another.
+  - **Data quality stays separate from signal strength** — it is not multiplied into
+    the score. Ranking remains a preliminary divergence-*measurement* ranking
+    (largest measured gap), now documented as such in the API — not an opportunity
+    ranking (that is the Alpha Score, Sprint 07).
+  - **Evidence** language corrected: the 7d/30d comparison is described as "recent
+    7-day fee run-rate ~X% vs the 30-day baseline" (not a proven long-term trend),
+    with an explicit `evidence_strength` (LOW for single-snapshot growth-window).
+  - Config: removed the unused `DIVERGENCE_WEAKENING_THRESHOLD`; added
+    `DIVERGENCE_PRICE_STAGNANT_CEILING` and `DIVERGENCE_PRICE_STRONG_THRESHOLD`.
+
+### Fixed
+- **VVV was misclassified** as `fundamental_divergence` purely because its
+  fundamental growth (+155.8%) exceeded its price growth (+98.3%), despite price
+  having already risen +98%. It is now `fundamental_repricing`. A regression test
+  pins this.
+
+### Notes
+- Migration `0005` (additive, reversible) adds the three measurement columns to
+  `divergence_signals`. Verified end-to-end on Docker + PostgreSQL 16. Full suite:
+  121 tests; ruff and mypy clean. No changes to the Alpha Score (Sprint 07) or to
+  Sprint 06 scope.
+
 ## [0.5.0] — 2026-09-13
 
 ### Added

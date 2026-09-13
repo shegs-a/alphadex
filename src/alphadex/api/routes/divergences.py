@@ -1,11 +1,17 @@
 """Divergence endpoints (read-only).
 
-Serves the latest divergence run's ranked signals and the run history. Each signal is
-explainable — it carries the fundamentals/price/valuation trends, the method used, a
-divergence score, a data-quality figure, and the §10 evidence. Classifications are
-``fundamental_divergence`` / ``watch`` / ``thesis_weakening`` / ``insufficient_data``;
-there is no BUY language (§10). A missing score is ``null`` with a classification,
-never ``0`` (ADR-003).
+Serves the latest divergence run's signals and the run history. Each signal is
+explainable — it carries the measurement (divergence gap/score, signal strength) and
+the interpretation (classification), kept distinct (ADR-005), plus the trends, the
+method, a data-quality figure, and the §10 evidence. Classifications are
+``potential_mispricing`` / ``fundamental_divergence`` / ``fundamental_repricing`` /
+``momentum`` / ``thesis_weakening`` / ``watch`` / ``insufficient_data``.
+
+**Ranking is a preliminary divergence-*measurement* ranking** — signals are ordered by
+the measured economic-price gap (``divergence_score``), highest first. Rank #1 means
+"largest measured gap", NOT "best investment opportunity"; data quality and valuation
+do not influence rank (that is the Alpha Score's job, Sprint 07). A missing score is
+``null`` with a classification, never ``0`` (ADR-003). No BUY language (§10).
 """
 
 from __future__ import annotations
@@ -29,10 +35,15 @@ class DivergenceSignalOut(BaseModel):
     symbol: str
     name: str
     classification: str
+    # Measurement (kept distinct from confidence — ADR-005):
     divergence_score: float | None
+    divergence_gap: float | None
+    signal_strength: float | None
     fundamentals_trend: float | None
     price_trend: float | None
     valuation_trend: float | None
+    valuation_level: float | None
+    # Provenance / confidence:
     window: str | None
     method: str | None
     data_quality: float | None
@@ -60,9 +71,12 @@ def _signal_out(signal: DivergenceSignal) -> DivergenceSignalOut:
         name=signal.asset.name,
         classification=signal.classification,
         divergence_score=_num(signal.divergence_score),
+        divergence_gap=_num(signal.divergence_gap),
+        signal_strength=_num(signal.signal_strength),
         fundamentals_trend=_num(signal.fundamentals_trend),
         price_trend=_num(signal.price_trend),
         valuation_trend=_num(signal.valuation_trend),
+        valuation_level=_num(signal.valuation_level),
         window=signal.window,
         method=signal.method,
         data_quality=_num(signal.data_quality),

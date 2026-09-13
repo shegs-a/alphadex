@@ -28,8 +28,9 @@ def _cfg(**o: object) -> DivergenceConfig:
         scope="candidates",
         min_history_days=5.0,
         threshold=0.15,
-        weakening_threshold=-0.15,
         min_fundamentals_improvement=0.05,
+        price_stagnant_ceiling=0.05,
+        price_strong_threshold=0.50,
         weight_gap=0.7,
         weight_valuation=0.3,
     )

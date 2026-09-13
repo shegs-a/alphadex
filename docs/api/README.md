@@ -184,32 +184,53 @@ Query parameters (all optional):
 
 | Param            | Type | Notes                                                                 |
 |------------------|------|-----------------------------------------------------------------------|
-| `classification` | str  | `fundamental_divergence` / `watch` / `thesis_weakening` / `insufficient_data`. |
+| `classification` | str  | one of the classifications below.                                     |
 | `limit`          | int  | 1–500 (default 100).                                                  |
 | `offset`         | int  | ≥ 0.                                                                  |
 
-Each item carries the fundamentals/price/valuation trends, the `method`
-(`growth_window` or `cross_time`), a **divergence score** (a component, not the Alpha
-Score), a `data_quality` figure, and the full `evidence`. A missing score is `null`
-with a classification — never `0` (ADR-003). Language is constrained to *fundamental
-divergence / watch / thesis weakening / risk* — no BUY/GUARANTEED (§10).
+**Classifications** (interpretation, distinct from the measurement — ADR-005):
+`potential_mispricing`, `fundamental_divergence`, `fundamental_repricing`,
+`momentum`, `thesis_weakening`, `watch`, `insufficient_data`.
+
+Each item separates **measurement** from **interpretation**: the measurement fields
+are `divergence_gap` (raw `ft − pt`), `divergence_score` (blended, signed; a
+component, not the Alpha Score), `signal_strength` (magnitude), the trends, and
+`valuation_level`; the interpretation is `classification`. It also carries `method`
+(`growth_window` or `cross_time`), a `data_quality` figure (kept separate — never
+multiplied into the score), and the full `evidence` (incl. `evidence_strength`). A
+missing score is `null` with a classification — never `0` (ADR-003). No
+BUY/GUARANTEED language (§10).
+
+**Ranking:** results are ordered by `divergence_score` — a preliminary
+divergence-*measurement* ranking (largest measured economic-price gap). Rank #1 does
+**not** mean "best opportunity"; data quality and valuation do not influence rank
+(that is the Alpha Score's role, Sprint 07).
 
 ```json
 [
   { "asset_id": 12, "symbol": "FIL", "name": "Filecoin",
-    "classification": "fundamental_divergence", "divergence_score": 0.5298,
-    "fundamentals_trend": 0.7228, "price_trend": 0.193, "valuation_trend": null,
+    "classification": "fundamental_divergence",
+    "divergence_score": 0.5298, "divergence_gap": 0.5298, "signal_strength": 0.5298,
+    "fundamentals_trend": 0.7228, "price_trend": 0.193,
+    "valuation_trend": null, "valuation_level": 88.4,
     "window": "7d/30d", "method": "growth_window", "data_quality": 0.3, "rank": 2,
     "evidence": {
-      "what_changed": "Fundamentals +72.3% (...); price +19.3% (...).",
+      "what_changed": "Fundamentals: recent 7-day fee run-rate is approximately +72.3% vs the 30-day baseline. Price +19.3% (...).",
       "why_now": "based on provider 7d/30d growth windows (single snapshot)",
-      "what_supports": ["fundamentals improving (+72.3%, ...)"],
+      "evidence_strength": "low",
+      "evidence_strength_reason": "signal relies on a single snapshot (7d vs 30d windows), not a persistent historical series",
+      "what_supports": ["fundamentals improving (...)"],
       "what_contradicts": ["price already moved (+19.3%)"],
       "what_invalidates": "fundamentals reversing, or price catching up",
-      "major_risk": "single-snapshot proxy — confirm as history accumulates; ..."
+      "major_risk": "7d/30d comparison is not proof of a long-term trend — ..."
     } }
 ]
 ```
+
+Example of a **repricing** result (VVV): same measurement (`divergence_score 0.575`,
+`divergence_gap 0.575`) but `classification: "fundamental_repricing"` because price
+already rose +98.3% — the measurement is preserved while the interpretation reflects
+that the market may already recognize the improvement.
 
 ## `GET /divergences/{asset_id}`
 

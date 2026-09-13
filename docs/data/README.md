@@ -42,13 +42,17 @@ Home for AlphaDex Scout's data model documentation:
   **derived data**, regenerable by re-running a scan.
 - **`divergence_runs`** — one row per Divergence Engine run: timestamp, status,
   `analyzed_count`, `divergence_count`, and a snapshot of the config used.
-- **`divergence_signals`** — one row per analyzed asset per run: `classification`
-  (`fundamental_divergence` / `watch` / `thesis_weakening` / `insufficient_data`),
-  `divergence_score` (nullable — a **component**, not the Alpha Score),
-  `fundamentals_trend`, `price_trend`, `valuation_trend`, `window`, `method`
-  (`growth_window` / `cross_time`), `data_quality`, `rank`, and an `evidence` JSON
-  (the §10 questions answered). A missing score is `NULL` with a classification —
-  never `0`. Signals are **derived data**.
+- **`divergence_signals`** — one row per analyzed asset per run. **Measurement**
+  fields (kept distinct — ADR-005): `divergence_gap` (raw `ft − pt`),
+  `divergence_score` (blended, signed; a **component**, not the Alpha Score),
+  `signal_strength` (magnitude), `fundamentals_trend`, `price_trend`,
+  `valuation_trend`, `valuation_level` (the multiple, informational). **Interpretation
+  & provenance**: `classification` (`potential_mispricing` / `fundamental_divergence`
+  / `fundamental_repricing` / `momentum` / `thesis_weakening` / `watch` /
+  `insufficient_data`), `window`, `method` (`growth_window` / `cross_time`),
+  `data_quality` (separate from signal strength), `rank`, and an `evidence` JSON (the
+  §10 questions + `evidence_strength`). A missing score is `NULL` with a
+  classification — never `0`. Signals are **derived data**.
 
 ### Missing-data semantics (ADR-003)
 
@@ -179,14 +183,29 @@ trend**, using whichever evidence the asset has:
 A coarse market-cap-to-annualized-fees multiple is one additional input (a
 divergence signal, **not** a valuation verdict — real valuation is a later sprint).
 
-The signed **divergence score** (in [-1, 1]) is a weighted blend of the
-fundamentals-vs-price gap and (when available) the valuation-multiple change. It is
-a **component**, never the Alpha Score. Classifications: `fundamental_divergence`
-(fundamentals improving, price lagging), `watch`, `thesis_weakening` (fundamentals
-declining or price ran ahead), `insufficient_data` (core inputs missing → `null`
-score). Every signal carries `data_quality` and evidence answering *what changed /
-why now / what supports / contradicts / invalidates / the major risk*. No BUY
-language (§10).
+**Measurement vs. interpretation are kept separate** (ADR-005). The signed
+**divergence score** (in [-1, 1]) — a weighted blend of the fundamentals-vs-price gap
+and, when available, the valuation-multiple change — is a *measurement* (a
+**component**, never the Alpha Score). A positive gap does **not** by itself mean an
+opportunity. The **classification** interprets the measurement by reading the price
+regime:
+
+- `potential_mispricing` — fundamentals improving materially, price declining/stagnant.
+- `fundamental_divergence` — fundamentals improving faster than price, price **not**
+  already strongly repriced.
+- `fundamental_repricing` — fundamentals improving strongly **and** price also rising
+  strongly (market may already recognize it).
+- `momentum` — price rising strongly without material fundamental support.
+- `thesis_weakening` — fundamentals deteriorating materially.
+- `watch` / `insufficient_data`.
+
+Classification uses configurable, documented heuristics (a materiality floor, a
+stagnant/declining ceiling, and an "already repriced" marker) — not a single
+hard-coded cutoff. Every signal carries `data_quality` (separate from signal
+strength — never multiplied into the score) and evidence answering *what changed /
+why now / what supports / contradicts / invalidates / the major risk*, plus an
+`evidence_strength`. No BUY language (§10). Ranking is a preliminary
+divergence-*measurement* ranking (largest measured gap), not an opportunity ranking.
 
 ## Providers
 

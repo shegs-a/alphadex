@@ -13,8 +13,9 @@ def _cfg(**o: object) -> DivergenceConfig:
         scope="candidates",
         min_history_days=5.0,
         threshold=0.15,
-        weakening_threshold=-0.15,
         min_fundamentals_improvement=0.05,
+        price_stagnant_ceiling=0.05,
+        price_strong_threshold=0.50,
         weight_gap=0.7,
         weight_valuation=0.3,
     )
@@ -34,6 +35,11 @@ def test_weights_must_sum_to_one() -> None:
 def test_invalid_scope_rejected() -> None:
     with pytest.raises(ValueError, match="scope"):
         _cfg(scope="everything")
+
+
+def test_price_ceiling_must_be_below_strong_threshold() -> None:
+    with pytest.raises(ValueError, match="price_stagnant_ceiling"):
+        _cfg(price_stagnant_ceiling=0.6, price_strong_threshold=0.5)
 
 
 def test_from_settings() -> None:

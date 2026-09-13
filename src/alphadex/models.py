@@ -387,14 +387,21 @@ class DivergenceSignal(Base):
         ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
     )
 
-    # fundamental_divergence | watch | thesis_weakening | insufficient_data
+    # potential_mispricing | fundamental_divergence | fundamental_repricing |
+    # momentum | thesis_weakening | watch | insufficient_data  (see ADR-005)
     classification: Mapped[str] = mapped_column(String(32), nullable=False)
+    # Measurement fields, kept distinct from confidence (ADR-005):
     divergence_score: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    divergence_gap: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    signal_strength: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
     fundamentals_trend: Mapped[float | None] = mapped_column(
         Numeric(18, 8), nullable=True
     )
     price_trend: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
     valuation_trend: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    valuation_level: Mapped[float | None] = mapped_column(
+        Numeric(38, 18), nullable=True
+    )
     window: Mapped[str | None] = mapped_column(String(32), nullable=True)
     method: Mapped[str | None] = mapped_column(String(32), nullable=True)
     data_quality: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)

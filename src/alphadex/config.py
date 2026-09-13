@@ -73,10 +73,15 @@ class Settings(BaseSettings):
     divergence_scope: str = Field(default="candidates")
     # Track B needs two observations at least this many days apart.
     divergence_min_history_days: float = Field(default=5.0)
-    # Classification thresholds (on the signed divergence score, -1..1).
+    # Classification heuristics (configurable — documented, not universal truths).
+    # Minimum economic-price gap for a divergence-family classification.
     divergence_threshold: float = Field(default=0.15)
-    divergence_weakening_threshold: float = Field(default=-0.15)
+    # Materiality floor for "fundamentals improving"/"deteriorating".
     divergence_min_fundamentals_improvement: float = Field(default=0.05)
+    # Price at/below this (fractional 30d change) is "declining or stagnant".
+    divergence_price_stagnant_ceiling: float = Field(default=0.05)
+    # Price at/above this is "already repriced strongly" (momentum/repricing marker).
+    divergence_price_strong_threshold: float = Field(default=0.50)
     # Divergence score component weights (must sum to 1.0; a component; NOT alpha).
     divergence_weight_gap: float = Field(default=0.7)
     divergence_weight_valuation: float = Field(default=0.3)
