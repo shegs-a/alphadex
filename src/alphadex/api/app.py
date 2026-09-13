@@ -13,6 +13,7 @@ from alphadex.api.routes import (
     market_data,
     opportunities,
     risk,
+    scores,
     tokenomics,
 )
 from alphadex.config import get_settings
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(divergences.router)
     app.include_router(tokenomics.router)
     app.include_router(risk.router)
+    app.include_router(scores.router)
     return app
 
 

@@ -597,3 +597,99 @@ class RiskAssessment(Base):
             f"<RiskAssessment run={self.risk_run_id} asset={self.asset_id} "
             f"band={self.risk_band!r}>"
         )
+
+
+class AlphaRun(Base):
+    """One run of the Alpha Scoring Engine (Sprint 07).
+
+    Assembles the upstream component signals into the headline decision-support
+    output. The config (weight vector, references, thresholds) is snapshotted for
+    reproducibility (§10). Alpha scores are derived data, regenerable by re-running.
+    """
+
+    __tablename__ = "alpha_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # running | success | failed
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    analyzed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    scored_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    scores: Mapped[list[AlphaScore]] = relationship(
+        back_populates="alpha_run", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<AlphaRun id={self.id} status={self.status!r}>"
+
+
+class AlphaScore(Base):
+    """One asset's Alpha assessment — **three separate outputs** (§10, ADR-006).
+
+    ``alpha_score`` (attractiveness), ``risk_score`` (+ band, taken from the Risk
+    engine — not folded into Alpha), and ``confidence`` (+ band) are distinct columns.
+    ``model_completeness`` records how much of the full 7-component model was available
+    (Valuation and Technical Setup are not implemented yet). A missing score is
+    ``NULL`` with a ``status`` explaining why, never ``0`` (ADR-003). ``components``
+    holds the per-component breakdown (contribution/weight/available) and ``evidence``
+    answers the §10 questions. ``status`` uses the allowed decision vocabulary — never
+    BUY. Ranking is by Alpha Score, ties broken toward higher completeness.
+    """
+
+    __tablename__ = "alpha_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    alpha_run_id: Mapped[int] = mapped_column(
+        ForeignKey("alpha_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+
+    alpha_score: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # strong | moderate | weak | unknown
+    alpha_band: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    risk_score: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # low | moderate | elevated | high | unknown
+    risk_band: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # high | moderate | low
+    confidence_band: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    model_completeness: Mapped[float | None] = mapped_column(
+        Numeric(5, 4), nullable=True
+    )
+    # high_interest | potential_opportunity | watch | risk_elevated |
+    # low_confidence | thesis_weakening | insufficient_data  (never BUY — §10)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    components: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    evidence: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    alpha_run: Mapped[AlphaRun] = relationship(back_populates="scores")
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        Index("ix_alpha_scores_run", "alpha_run_id"),
+        Index("ix_alpha_scores_asset", "asset_id"),
+        UniqueConstraint("alpha_run_id", "asset_id", name="uq_alpha_score_run_asset"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<AlphaScore run={self.alpha_run_id} asset={self.asset_id} "
+            f"status={self.status!r} rank={self.rank}>"
+        )

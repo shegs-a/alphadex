@@ -65,6 +65,15 @@ Home for AlphaDex Scout's data model documentation:
   `risk_band`, a separate `data_quality`, `rank`, and `evidence` JSON.
   `concentration_risk` is always `NULL` (no on-chain data — a surfaced gap). Derived
   data.
+- **`alpha_runs` / `alpha_scores`** — the Alpha Scoring Engine (Sprint 07, ADR-006).
+  Per asset, the **three separate outputs** as distinct columns: `alpha_score`
+  (nullable) + `alpha_band`, `risk_score` (nullable) + `risk_band` (carried from the
+  Risk engine — not folded into Alpha), and `confidence` (nullable) +
+  `confidence_band`; plus `model_completeness` (available component weight ÷ full
+  target weight — caps at 0.80 while Valuation and Technical Setup are unimplemented),
+  a decision `status` (allowed vocabulary only, never BUY), `rank`, a per-component
+  `components` breakdown JSON, and `evidence` JSON. A missing score is `NULL` with a
+  status, never `0`. Derived data, regenerable by re-running.
 
 ### Missing-data semantics (ADR-003)
 
@@ -256,6 +265,36 @@ turnover (no volume relative to market cap); **volatility** — a price swing at
 circulating value is 0% of fully diluted (maximum overhang); **size** — market cap
 near zero. A genuine `0.0` (e.g. no dilution at 100% float) is distinct from `null`
 (factor unavailable). `concentration_risk` is always `null`.
+
+---
+
+## Alpha Scoring Engine (Sprint 07)
+
+The headline decision-support output, produced as **three separate outputs** — never
+one number (§10, ADR-006). It reads the other engines' latest persisted outputs
+(divergence, tokenomics, risk) plus market observations; it depends on no provider.
+
+**Alpha Score** — a configurable weighted blend of the *attractiveness* components,
+each a normalized contribution in [0,1]: **economic growth** (fundamentals trend,
+25), **divergence** (from the ADR-005 **classification**, not the raw gap — so
+repricing/momentum don't score as opportunity, 20), **valuation** (*not implemented*,
+15), **token value capture** (Sprint 06 `value_capture_score`, 15), **market
+strength** (momentum + turnover, 10), **tokenomics** (`float_ratio`, 10), and
+**technical setup** (*not implemented*, 5). The score is the weighted **average** over
+the components that are implemented **and** available, weights **renormalized** over
+what is present — so it is bounded by the available contributions' min/max and a
+missing component can never inflate it. Absent components are **never zero-filled**
+(ADR-003).
+
+**Risk Score** (+ band) is carried through from the Risk engine and shown alongside —
+never folded into Alpha. **Confidence** (+ band) blends `model_completeness` (available
+component weight ÷ full target weight; caps at 0.80 while Valuation and Technical Setup
+are unimplemented) with upstream data quality. Ranking is by Alpha Score, ties broken
+**toward** higher `model_completeness` so a shorter component set never gains from
+renormalization. The decision `status` (`high_interest`, `potential_opportunity`,
+`watch`, `risk_elevated`, `low_confidence`, `thesis_weakening`, `insufficient_data`)
+down-classifies a high Alpha that carries elevated Risk or low Confidence — never BUY
+(§10). Default weights are the documented AGENTS.md defaults, not fitted to outcomes.
 
 ## Providers
 

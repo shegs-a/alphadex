@@ -13,6 +13,7 @@ Resources are designed per-sprint, not built speculatively. Implemented so far:
 - `GET /divergences`, `GET /divergences/{id}`, `GET /divergence-runs` — divergence (Sprint 05)
 - `GET /tokenomics`, `GET /tokenomics/{id}`, `GET /tokenomics-runs` — value capture (Sprint 06)
 - `GET /risk`, `GET /risk/{id}`, `GET /risk-runs` — risk (Sprint 06)
+- `GET /scores`, `GET /scores/{id}`, `GET /score-runs` — Alpha / Risk / Confidence (Sprint 07)
 
 Planned: `/scores` (Alpha Score, Sprint 07).
 
@@ -272,6 +273,36 @@ never `0`. Ordered by risk score, highest first (a warning ordering, not an
 opportunity ranking). Language is *risk elevated / risk high*, never BUY. Query
 params: `band`, `limit`, `offset`. `GET /risk/{asset_id}` returns one asset (404 if
 not assessed); `GET /risk-runs` lists runs.
+
+---
+
+## `GET /scores`
+
+The ranked **opportunity list** from the latest Alpha Scoring run (Sprint 07) — the
+system's headline decision-support surface. Each item exposes the **three separate
+outputs** (§10, ADR-006):
+
+- `alpha_score` (nullable) + `alpha_band` (`strong`/`moderate`/`weak`/`unknown`) —
+  attractiveness; the ranking key.
+- `risk_score` (nullable) + `risk_band` — carried from the Risk engine and shown
+  **alongside**, never folded into Alpha.
+- `confidence` (nullable) + `confidence_band` (`high`/`moderate`/`low`) — how much to
+  trust the Alpha Score.
+
+Plus `model_completeness` (how much of the full 7-component model was available —
+Valuation and Technical Setup are not implemented yet, so it currently caps at 0.80),
+a per-component `components` breakdown (`name`, `weight`, `contribution`, `available`,
+`detail`), an `evidence` object (why interesting / supports / contradicts /
+invalidates / missing components / major risk), `rank`, and a decision `status`. A
+missing score is `null` with a status, never `0` (ADR-003).
+
+Ranked by Alpha Score (ties broken toward higher `model_completeness`, so a shorter
+component set never out-ranks a more-complete one). `status` uses the allowed
+vocabulary only — `high_interest`, `potential_opportunity`, `watch`, `risk_elevated`,
+`low_confidence`, `thesis_weakening`, `insufficient_data` — **never BUY/GUARANTEED**; a
+high Alpha with elevated Risk or low Confidence is down-classified. Query params:
+`status`, `risk_band`, `confidence_band`, `limit`, `offset`. `GET /scores/{asset_id}`
+returns one asset (404 if not scored); `GET /score-runs` lists runs.
 
 ---
 

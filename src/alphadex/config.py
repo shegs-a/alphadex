@@ -110,6 +110,34 @@ class Settings(BaseSettings):
     risk_band_elevated: float = Field(default=0.50)
     risk_band_high: float = Field(default=0.75)
 
+    # ── Alpha Scoring Engine (Sprint 07) — three separate outputs (§10) ──────
+    alpha_scope: str = Field(default="candidates")
+    # The full 7-component Alpha weight vector (AGENTS.md §10 defaults; sums to 1.0).
+    # Valuation and Technical Setup are not implemented yet — their weight is
+    # renormalized over the available components and their absence lowers Confidence
+    # (never zero-filled — ADR-003/ADR-006). Weights are documented defaults, NOT
+    # fitted to any known outcomes (§10, no hindsight bias).
+    alpha_weight_economic_growth: float = Field(default=0.25)
+    alpha_weight_divergence: float = Field(default=0.20)
+    alpha_weight_valuation: float = Field(default=0.15)
+    alpha_weight_token_value_capture: float = Field(default=0.15)
+    alpha_weight_market_strength: float = Field(default=0.10)
+    alpha_weight_tokenomics: float = Field(default=0.10)
+    alpha_weight_technical_setup: float = Field(default=0.05)
+    # Normalization references for the component adapters (documented heuristics).
+    alpha_ref_fundamentals_growth: float = Field(default=0.50)  # +50% → full marks
+    alpha_ref_market_momentum: float = Field(default=0.50)  # +50% 30d → full marks
+    alpha_ref_market_turnover: float = Field(default=0.10)  # healthy vol / market cap
+    # Confidence blend (model completeness vs upstream data quality; must sum to 1.0).
+    alpha_conf_weight_completeness: float = Field(default=0.60)
+    alpha_conf_weight_data_quality: float = Field(default=0.40)
+    # Confidence band cut points on the 0..1 confidence (0 < moderate < high < 1).
+    alpha_confidence_band_moderate: float = Field(default=0.40)
+    alpha_confidence_band_high: float = Field(default=0.70)
+    # Decision-status Alpha thresholds (0 < moderate < strong < 1).
+    alpha_status_moderate: float = Field(default=0.45)
+    alpha_status_strong: float = Field(default=0.65)
+
     @property
     def universe_ids(self) -> list[str]:
         """Parsed explicit universe ids (empty when top-N mode is used)."""

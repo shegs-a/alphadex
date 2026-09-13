@@ -1,6 +1,6 @@
 [project]
 name = "alphadex"
-version = "0.6.1"
+version = "0.7.0"
 description = "AlphaDex Scout — Crypto Alpha Intelligence System (Ciphercrib Solutions)"
 readme = "README.md"
 requires-python = ">=3.11"

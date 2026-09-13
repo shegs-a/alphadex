@@ -9,6 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.7.0] — 2026-09-13
+
+### Added
+- **Alpha Scoring Engine (Sprint 07)** — the system's headline decision-support
+  output, produced as **three separate outputs**, never one number (§10, ADR-006):
+  - **Alpha Score** — a configurable weighted blend of the *attractiveness*
+    components (economic growth, divergence, token value capture, market strength,
+    tokenomics), with an `alpha_band`.
+  - **Risk Score** (+ band) — carried through from the Sprint 06 Risk engine and
+    surfaced **alongside** Alpha, never folded into it.
+  - **Confidence** (+ band) — how much to trust the Alpha Score, from
+    `model_completeness` and upstream data quality.
+  - A **decision `status`** in the allowed vocabulary only — `high_interest`,
+    `potential_opportunity`, `watch`, `risk_elevated`, `low_confidence`,
+    `thesis_weakening`, `insufficient_data`. Never BUY/GUARANTEED. A high Alpha with
+    elevated Risk or low Confidence is down-classified.
+- New `alpha_runs` / `alpha_scores` tables (migration `0007`, additive/reversible);
+  Alpha, Risk, and Confidence are distinct columns, plus `model_completeness`, a
+  per-component `components` breakdown, and `evidence`. Read API: `GET /scores`
+  (ranked by Alpha Score; Risk + Confidence shown separately; filter by
+  status/band), `GET /scores/{asset_id}`, `GET /score-runs`. New `scripts/run_alpha.py`.
+- **ADR-006** — records the three-output model and the renormalize-and-reflect-in-
+  Confidence handling of not-yet-implemented components.
+
+### Notes
+- **Valuation (15) and Technical Setup (5) are not implemented yet.** Their 20% of the
+  intended weight is handled like any missing input: weights are **renormalized** over
+  the available components and the absence is reflected in **Confidence**
+  (`model_completeness` caps at 0.80) — **never zero-filled** (ADR-003). The full
+  7-component target vector lives in config so the intended model is explicit; the two
+  components slot in automatically when built (Sprint 08+).
+- The Alpha Score is a weighted **average** of available contributions, so it is
+  bounded by their min/max — a missing component can never inflate it. Ranking is by
+  Alpha Score with `model_completeness` breaking ties **toward** the more-complete
+  asset, so renormalizing a shorter component set never buys a rank advantage.
+- Divergence feeds Alpha via its ADR-005 **classification** (not the raw gap), so
+  repricing/momentum do not score as opportunity and price is not double-counted.
+- Default weights are the documented AGENTS.md defaults — **not** fitted to any known
+  outcomes (no hindsight bias, §10). Full suite: 179 tests; ruff and mypy clean.
+
 ## [0.6.1] — 2026-09-13
 
 ### Fixed
