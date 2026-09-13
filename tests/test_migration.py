@@ -63,6 +63,8 @@ def test_migration_creates_and_drops_tables(sqlite_db_url: str) -> None:
         "risk_assessments",
         "alpha_runs",
         "alpha_scores",
+        "valuation_runs",
+        "valuation_assessments",
     }.issubset(tables)
     engine.dispose()
 
@@ -84,6 +86,8 @@ def test_migration_creates_and_drops_tables(sqlite_db_url: str) -> None:
         "risk_assessments",
         "alpha_runs",
         "alpha_scores",
+        "valuation_runs",
+        "valuation_assessments",
     ):
         assert dropped not in tables
     engine.dispose()

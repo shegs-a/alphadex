@@ -133,10 +133,12 @@ def test_tokenomics_uses_float_ratio() -> None:
     assert comp.tokenomics(None, _cfg()).available is False
 
 
-def test_valuation_and_technical_are_not_implemented() -> None:
-    v = comp.valuation(_cfg())
+def test_valuation_consumes_score_and_technical_is_not_implemented() -> None:
+    # Valuation graduated in Sprint 08: it now consumes the valuation score.
+    assert comp.valuation(0.7, _cfg()).contribution == 0.7
+    assert comp.valuation(None, _cfg()).available is False  # unmeasured → unavailable
+    # Technical Setup is still not implemented.
     t = comp.technical_setup(_cfg())
-    assert v.available is False and v.detail == comp.REASON_NOT_IMPLEMENTED
     assert t.available is False and t.detail == comp.REASON_NOT_IMPLEMENTED
 
 

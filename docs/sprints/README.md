@@ -19,11 +19,16 @@ Every sprint has two documents:
 | 05 | Economic Divergence Engine |
 | 06 | Tokenomics & Risk Engine |
 | 07 | Alpha Scoring Engine |
-| 08 | Technical Setup Engine |
+| 08 | Valuation Engine |
 | 09 | Reporting & Notifications |
 | 10 | Dashboard |
 | 11 | Historical Intelligence & Backtesting |
 | 12 | Hardening & Production Deployment |
+| — | Technical Setup Engine (reordered after Sprint 08; unscheduled) |
+
+Sprint 08 was reordered from Technical Setup to the **Valuation Engine** — the larger
+lever on Alpha Confidence (weight 15 vs 5). Technical Setup (the remaining
+`not_implemented` Alpha component) is deferred to a later, currently unscheduled sprint.
 
 Split a sprint if it grows too large.
 

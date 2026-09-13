@@ -693,3 +693,90 @@ class AlphaScore(Base):
             f"<AlphaScore run={self.alpha_run_id} asset={self.asset_id} "
             f"status={self.status!r} rank={self.rank}>"
         )
+
+
+class ValuationRun(Base):
+    """One run of the Valuation engine (Sprint 08). A **component** feeding Alpha."""
+
+    __tablename__ = "valuation_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    analyzed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    assessments: Mapped[list[ValuationAssessment]] = relationship(
+        back_populates="valuation_run", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<ValuationRun id={self.id} status={self.status!r}>"
+
+
+class ValuationAssessment(Base):
+    """One asset's relative valuation — a **component**, not the Alpha Score.
+
+    ``valuation_score`` is a **relative attractiveness** in [0,1] (higher = cheaper
+    vs the economics generated) against heuristic reference multiples — **not** an
+    intrinsic/fair-value claim. It is ``NULL`` with a label when no multiple was
+    measurable, never ``0`` (ADR-003). The four multiples measure distinct economic
+    relationships and are stored as distinct columns (§9); ``data_completeness`` is
+    kept **separate** from the score. Derived data, regenerable by re-running.
+    """
+
+    __tablename__ = "valuation_assessments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    valuation_run_id: Mapped[int] = mapped_column(
+        ForeignKey("valuation_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+
+    valuation_score: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # cheap | fair | expensive | unknown  (a relative reading, not a fair-value verdict)
+    valuation_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    price_to_fees: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    price_to_revenue: Mapped[float | None] = mapped_column(
+        Numeric(18, 8), nullable=True
+    )
+    price_to_holders_revenue: Mapped[float | None] = mapped_column(
+        Numeric(18, 8), nullable=True
+    )
+    mcap_to_tvl: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    data_completeness: Mapped[float | None] = mapped_column(
+        Numeric(5, 4), nullable=True
+    )
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    valuation_run: Mapped[ValuationRun] = relationship(back_populates="assessments")
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        Index("ix_valuation_assessments_run", "valuation_run_id"),
+        Index("ix_valuation_assessments_asset", "asset_id"),
+        UniqueConstraint(
+            "valuation_run_id", "asset_id", name="uq_valuation_assessment_run_asset"
+        ),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<ValuationAssessment run={self.valuation_run_id} asset={self.asset_id} "
+            f"label={self.valuation_label!r}>"
+        )

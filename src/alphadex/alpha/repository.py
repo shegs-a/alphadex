@@ -24,6 +24,8 @@ from alphadex.models import (
     RiskRun,
     TokenomicsRun,
     TokenomicsSignal,
+    ValuationAssessment,
+    ValuationRun,
 )
 
 # Market metrics the market-strength component reads.
@@ -98,6 +100,29 @@ def load_latest_risk(
         select(RiskAssessment).where(
             RiskAssessment.risk_run_id == latest.id,
             RiskAssessment.asset_id.in_(asset_ids),
+        )
+    ).scalars()
+    return {r.asset_id: r for r in rows}
+
+
+def load_latest_valuation(
+    session: Session, asset_ids: list[int]
+) -> dict[int, ValuationAssessment]:
+    """Latest successful valuation run's assessments, keyed by asset id."""
+    if not asset_ids:
+        return {}
+    latest = session.execute(
+        select(ValuationRun)
+        .where(ValuationRun.status == "success")
+        .order_by(ValuationRun.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if latest is None:
+        return {}
+    rows = session.execute(
+        select(ValuationAssessment).where(
+            ValuationAssessment.valuation_run_id == latest.id,
+            ValuationAssessment.asset_id.in_(asset_ids),
         )
     ).scalars()
     return {r.asset_id: r for r in rows}

@@ -138,6 +138,23 @@ class Settings(BaseSettings):
     alpha_status_moderate: float = Field(default=0.45)
     alpha_status_strong: float = Field(default=0.65)
 
+    # ── Valuation Engine (Sprint 08) — a component feeding Alpha (§10) ───────
+    valuation_scope: str = Field(default="candidates")
+    # Heuristic mid-range references per multiple (the point mapped to 0.5
+    # attractiveness). Baselines — NOT universal fair values; not fitted to outcomes.
+    valuation_ref_price_to_fees: float = Field(default=30.0)
+    valuation_ref_price_to_revenue: float = Field(default=40.0)
+    valuation_ref_price_to_holders_revenue: float = Field(default=20.0)
+    valuation_ref_mcap_to_tvl: float = Field(default=1.0)
+    # Blend weights over the four multiples (must sum to 1.0).
+    valuation_weight_fees: float = Field(default=0.30)
+    valuation_weight_revenue: float = Field(default=0.30)
+    valuation_weight_holders_revenue: float = Field(default=0.25)
+    valuation_weight_tvl: float = Field(default=0.15)
+    # Label cut points on the 0..1 attractiveness (0 < expensive < cheap < 1).
+    valuation_band_expensive: float = Field(default=0.40)
+    valuation_band_cheap: float = Field(default=0.66)
+
     @property
     def universe_ids(self) -> list[str]:
         """Parsed explicit universe ids (empty when top-N mode is used)."""

@@ -4,6 +4,15 @@
 - Date: 2026-09-13
 - Sprint: 07
 
+> **Update (Sprint 08, 2026-09-13):** The **Valuation** component graduated from
+> `not_implemented` — the Valuation Engine now supplies its `valuation_score`, so the
+> `valuation` component is available (weight 15) for assets with valuation data and
+> `model_completeness` reaches ~0.95 for them. This validated the decision below: the
+> component slotted in with **no change to the Alpha formula, ranking, or the
+> three-output contract**. The renormalize-and-reflect-in-Confidence handling now
+> applies only to **Technical Setup** (weight 5), the sole remaining unimplemented
+> component (completeness caps at 0.95 until it lands).
+
 ## Context
 
 Sprints 02–06 produced the component signals — divergence (ADR-005), token value

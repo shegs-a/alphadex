@@ -13,6 +13,7 @@ Resources are designed per-sprint, not built speculatively. Implemented so far:
 - `GET /divergences`, `GET /divergences/{id}`, `GET /divergence-runs` — divergence (Sprint 05)
 - `GET /tokenomics`, `GET /tokenomics/{id}`, `GET /tokenomics-runs` — value capture (Sprint 06)
 - `GET /risk`, `GET /risk/{id}`, `GET /risk-runs` — risk (Sprint 06)
+- `GET /valuations`, `GET /valuations/{id}`, `GET /valuation-runs` — relative valuation (Sprint 08)
 - `GET /scores`, `GET /scores/{id}`, `GET /score-runs` — Alpha / Risk / Confidence (Sprint 07)
 
 Planned: `/scores` (Alpha Score, Sprint 07).
@@ -276,6 +277,24 @@ not assessed); `GET /risk-runs` lists runs.
 
 ---
 
+## `GET /valuations`
+
+Per-candidate **relative valuation** from the latest valuation run (Sprint 08) — a
+**component** feeding the Alpha Score, not the Alpha Score itself. Each item carries the
+four **distinct** multiples (`price_to_fees`, `price_to_revenue`,
+`price_to_holders_revenue`, `mcap_to_tvl` — distinct economic meanings, §9), a
+`valuation_score` (nullable) + `valuation_label` (`cheap`/`fair`/`expensive`/
+`unknown`), a separate `data_completeness`, `rank`, and `evidence`. The score is a
+**relative attractiveness** (higher = cheaper vs the economics generated) against
+documented heuristic references — **not** an intrinsic/fair-value claim; a missing or
+undefined multiple is `null`, never `0` (ADR-003), and `valuation_score` is `null`
+unless at least one multiple was measurable. Ordered by attractiveness, cheapest first
+(a component ranking, not an opportunity ranking). No BUY language (§10). Query params:
+`label`, `limit`, `offset`. `GET /valuations/{asset_id}` returns one asset (404 if not
+assessed); `GET /valuation-runs` lists runs.
+
+---
+
 ## `GET /scores`
 
 The ranked **opportunity list** from the latest Alpha Scoring run (Sprint 07) — the
@@ -289,8 +308,9 @@ outputs** (§10, ADR-006):
 - `confidence` (nullable) + `confidence_band` (`high`/`moderate`/`low`) — how much to
   trust the Alpha Score.
 
-Plus `model_completeness` (how much of the full 7-component model was available —
-Valuation and Technical Setup are not implemented yet, so it currently caps at 0.80),
+Plus `model_completeness` (how much of the full 7-component model was available — since
+Sprint 08 only Technical Setup is unimplemented, so it caps at 0.95 for assets with
+valuation data),
 a per-component `components` breakdown (`name`, `weight`, `contribution`, `available`,
 `detail`), an `evidence` object (why interesting / supports / contradicts /
 invalidates / missing components / major risk), `rank`, and a decision `status`. A

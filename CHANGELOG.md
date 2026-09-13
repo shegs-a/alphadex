@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.8.0] — 2026-09-13
+
+### Added
+- **Valuation Engine (Sprint 08)** — answers "is this asset cheap or expensive
+  **relative to the economics it generates**?" via four **distinct** multiples, each
+  with its own economic meaning (§9): market cap over annualized **fees** (gross
+  throughput), **revenue** (protocol take), **holders-revenue** (accrual to holders),
+  and **Mcap/TVL** (capital efficiency). Each measurable multiple is normalized to a
+  **relative attractiveness** (`ref / (ref + multiple)` — lower multiple = cheaper,
+  0.5 at the reference) and blended with renormalized weights into a `valuation_score`
+  (`cheap`/`fair`/`expensive`/`unknown`). The score is a *relative* reading against
+  heuristic baselines — **not** an intrinsic/fair-value claim.
+- New `valuation_runs` / `valuation_assessments` tables (migration `0008`,
+  additive/reversible): the four distinct multiples + `valuation_score` + label +
+  a separate `data_completeness` + evidence. Read API: `GET /valuations` (filter by
+  label; ranked by attractiveness), `GET /valuations/{asset_id}`,
+  `GET /valuation-runs`. New `scripts/run_valuation.py`.
+- **Alpha integration** — the `valuation` component **graduated** from
+  `not_implemented` to consuming `valuation_score` (available when measured,
+  unavailable when `null`). For assets with valuation data, `model_completeness` now
+  reaches ~0.95 — **with no change to the Alpha formula, ranking, or the three-output
+  contract** (ADR-006 upheld; see the dated note there).
+
+### Notes
+- `valuation_score` is `null` unless at least one multiple was genuinely measurable; a
+  zero/negative denominator → `null` (undefined), never a false `0` (ADR-003).
+  `data_completeness` is kept **separate** from the score — thin data raises
+  uncertainty (downstream Confidence), never a fake cheap/expensive reading.
+- References and blend weights are documented heuristic baselines, **not** universal
+  fair values and **not** fitted to any known outcomes (§10, no hindsight bias);
+  DCF/peer/historical methods are out of scope (tuning is a Sprint 11 concern).
+- **Technical Setup** remains the only `not_implemented` Alpha component (completeness
+  caps at 0.95). Sprint 08 was reordered from Technical Setup to Valuation (the larger
+  Confidence lever); Technical Setup is deferred to a later sprint.
+- Full suite: 197 tests; ruff + mypy clean; verified end-to-end on Docker + PostgreSQL.
+
 ## [0.7.0] — 2026-09-13
 
 ### Added

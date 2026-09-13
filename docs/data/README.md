@@ -65,6 +65,12 @@ Home for AlphaDex Scout's data model documentation:
   `risk_band`, a separate `data_quality`, `rank`, and `evidence` JSON.
   `concentration_risk` is always `NULL` (no on-chain data — a surfaced gap). Derived
   data.
+- **`valuation_runs` / `valuation_assessments`** — the Valuation engine (Sprint 08), a
+  **component** feeding Alpha. Per asset: four **distinct** multiples (`price_to_fees`,
+  `price_to_revenue`, `price_to_holders_revenue`, `mcap_to_tvl`), a `valuation_score`
+  (nullable — a *relative* attractiveness, not a fair-value claim) + `valuation_label`,
+  a separate `data_completeness`, `rank`, and `evidence` JSON. Missing/undefined
+  multiples are `NULL`, never `0`. Derived data.
 - **`alpha_runs` / `alpha_scores`** — the Alpha Scoring Engine (Sprint 07, ADR-006).
   Per asset, the **three separate outputs** as distinct columns: `alpha_score`
   (nullable) + `alpha_band`, `risk_score` (nullable) + `risk_band` (carried from the
@@ -268,6 +274,30 @@ near zero. A genuine `0.0` (e.g. no dilution at 100% float) is distinct from `nu
 
 ---
 
+## Valuation Engine (Sprint 08)
+
+Answers "is this asset cheap or expensive **relative to the economics it generates**?"
+— a **component** feeding the Alpha Score (weight 15), not the Alpha Score itself. It
+computes four **distinct** multiples over the latest values (market cap is the
+numerator; dilution is a separate concern owned by Tokenomics): **MC / annualized
+fees** (gross economic throughput), **MC / annualized revenue** (the protocol's take),
+**MC / annualized holders-revenue** (accrual to holders), and **MC / TVL** (capital
+efficiency). Fees ≠ Revenue ≠ Holders Revenue are kept distinct (§9) and never
+collapsed into one multiple.
+
+Each measurable multiple is normalized to a **relative attractiveness** in [0,1] via
+`ref / (ref + multiple)` — lower multiple = cheaper = more attractive, hitting exactly
+0.5 at the configured reference. The available attractiveness values are blended with
+**renormalized** weights into a `valuation_score` (`cheap`/`fair`/`expensive`), which is
+**`null` unless at least one multiple was actually measurable** (a strong reading is
+never fabricated); a zero/negative denominator makes a multiple undefined → `null`,
+never a false `0`. The score is a **relative** reading against **heuristic reference
+baselines** — *not* a claim of intrinsic/fair value. The raw multiples are always
+exposed, and `data_completeness` is kept **separate** from the score (thin data raises
+downstream uncertainty in Alpha Confidence, never a fake cheap/expensive reading).
+References and blend weights are documented defaults, not fitted to outcomes (§10);
+DCF/peer/historical methods are out of scope (a future extension). No BUY language.
+
 ## Alpha Scoring Engine (Sprint 07)
 
 The headline decision-support output, produced as **three separate outputs** — never
@@ -277,14 +307,15 @@ one number (§10, ADR-006). It reads the other engines' latest persisted outputs
 **Alpha Score** — a configurable weighted blend of the *attractiveness* components,
 each a normalized contribution in [0,1]: **economic growth** (fundamentals trend,
 25), **divergence** (from the ADR-005 **classification**, not the raw gap — so
-repricing/momentum don't score as opportunity, 20), **valuation** (*not implemented*,
-15), **token value capture** (Sprint 06 `value_capture_score`, 15), **market
-strength** (momentum + turnover, 10), **tokenomics** (`float_ratio`, 10), and
+repricing/momentum don't score as opportunity, 20), **valuation** (Sprint 08 relative
+`valuation_score`, 15), **token value capture** (Sprint 06 `value_capture_score`, 15),
+**market strength** (momentum + turnover, 10), **tokenomics** (`float_ratio`, 10), and
 **technical setup** (*not implemented*, 5). The score is the weighted **average** over
 the components that are implemented **and** available, weights **renormalized** over
 what is present — so it is bounded by the available contributions' min/max and a
 missing component can never inflate it. Absent components are **never zero-filled**
-(ADR-003).
+(ADR-003). Since Sprint 08 only **technical setup** is unimplemented, so
+`model_completeness` reaches ~0.95 for assets with valuation data.
 
 **Risk Score** (+ band) is carried through from the Risk engine and shown alongside —
 never folded into Alpha. **Confidence** (+ band) blends `model_completeness` (available

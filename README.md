@@ -91,21 +91,33 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 07 — Alpha Scoring Engine.**
+**Sprint 08 — Valuation Engine.**
 
-The culmination: the components built so far are combined into the system's headline
-decision-support output — but as **three separate outputs**, never one number (§10).
-An **Alpha Score** (a configurable weighted blend of the attractiveness components:
-economic growth, divergence, token value capture, market strength, tokenomics), a
-**Risk Score** carried through from the Risk engine and shown **alongside** (never
-folded in), and a **Confidence** (how much to trust the Alpha Score, from data
-completeness and quality). Two components — **Valuation** and **Technical Setup** —
-are not built yet; their weight is **renormalized** over the available components and
-their absence is reflected in Confidence (`model_completeness`), never zero-filled
-(ADR-006). Divergence feeds Alpha via its ADR-005 **classification** (not the raw gap),
-so repricing/momentum don't score as opportunity. Ranking is by Alpha Score (ties
-broken toward higher completeness), and a high Alpha with elevated Risk or low
-Confidence is **down-classified** — no blind BUY. Served read-only via `/scores`.
+Answers "is this asset cheap or expensive **relative to the economics it generates**?"
+via four **distinct** multiples — market cap over annualized **fees** (gross
+throughput), **revenue** (protocol take), **holders-revenue** (accrual to holders), and
+**Mcap/TVL** (capital efficiency). Each measurable multiple is normalized to a
+**relative attractiveness** (lower multiple = cheaper), blended into a `valuation_score`
+labeled `cheap`/`fair`/`expensive` — a *relative* reading against documented heuristic
+baselines, **not** an intrinsic/fair-value claim. `valuation_score` is `null` unless a
+multiple was measurable; completeness is kept separate. Served read-only via
+`/valuations`. Critically, the Alpha `valuation` component **graduated** from
+`not_implemented` to consuming this score — so for assets with valuation data
+`model_completeness` rises to ~0.95, **with no change to the Alpha formula, ranking, or
+the three-output contract** (the ADR-006 promise, cashed in). Only **Technical Setup**
+remains unimplemented.
+
+<details><summary>Previous: Sprint 07 — Alpha Scoring Engine</summary>
+
+
+The components are combined into the system's headline output — as **three separate
+outputs**, never one number (§10): an **Alpha Score** (weighted blend of the
+attractiveness components), a **Risk Score** carried through and shown **alongside**
+(never folded in), and a **Confidence** (how much to trust the Alpha Score). Ranking is
+by Alpha Score (ties broken toward higher completeness); a high Alpha with elevated Risk
+or low Confidence is **down-classified** — no blind BUY. Served read-only via `/scores`.
+
+</details>
 
 <details><summary>Previous: Sprint 06 — Tokenomics & Risk Engine</summary>
 
@@ -169,28 +181,34 @@ language and thin data is surfaced honestly, never fabricated.
   capture into a `value_capture_score` component; and a **separate Risk Engine** —
   liquidity/volatility/dilution/size into a `risk_score` + band (concentration
   surfaced as unavailable). Both persist runs with evidence.
+- **Valuation Engine** — relative cheapness vs the economics generated, from four
+  distinct multiples (MC over annualized fees / revenue / holders-revenue, and
+  Mcap/TVL) into a `valuation_score` + label; `null` unless measurable; a component
+  feeding Alpha (`valuation_runs` / `valuation_assessments`), served via `/valuations`.
 - **Alpha Scoring Engine** — combines the components into **three separate outputs**
   (Alpha Score, Risk Score, Confidence) with a decision `status` and per-component
-  breakdown; unimplemented components (Valuation, Technical Setup) are renormalized
-  out and reflected in Confidence, never zero-filled (ADR-006). Persists runs
+  breakdown; the not-yet-built component (Technical Setup) is renormalized out and
+  reflected in Confidence, never zero-filled (ADR-006). Persists runs
   (`alpha_runs` / `alpha_scores`) with evidence; served via `/scores`.
 - **Ingestion + analysis commands** — `scripts/ingest_market_data.py`,
   `scripts/ingest_fundamentals.py`, `scripts/run_scan.py`,
   `scripts/run_divergence.py`, `scripts/run_tokenomics.py`, `scripts/run_risk.py`,
-  `scripts/run_alpha.py`.
+  `scripts/run_valuation.py`, `scripts/run_alpha.py`.
 - **Read API** — `/health`, `/assets`, `/market-data`, `/fundamentals`,
   `/opportunities`, `/scans`, `/divergences`, `/divergence-runs`, `/tokenomics`,
-  `/tokenomics-runs`, `/risk`, `/risk-runs`, `/scores`, `/score-runs` (plus the
-  `/{id}` variants).
+  `/tokenomics-runs`, `/risk`, `/risk-runs`, `/valuations`, `/valuation-runs`,
+  `/scores`, `/score-runs` (plus the `/{id}` variants).
 - Test suite under pytest (config, health, data-quality, migration, providers,
-  normalization, ingestion services, scanner, divergence, tokenomics, risk, alpha,
-  API) plus the foundation gate.
+  normalization, ingestion services, scanner, divergence, tokenomics, risk, valuation,
+  alpha, API) plus the foundation gate.
 
 ### Known limitations
-- **Valuation and Technical Setup are not implemented yet** — 20% of the intended
-  Alpha weight. They are renormalized out and their absence caps Confidence
-  (`model_completeness` ≤ 0.80) until the Valuation engine and Technical Setup engine
-  (Sprint 08) land; then they slot in with no scoring rewrite (ADR-006).
+- **Technical Setup is the only unimplemented Alpha component** (weight 5) — it is
+  renormalized out and its absence caps Confidence (`model_completeness` ≤ 0.95) until
+  it lands (a later sprint); it will then slot in with no scoring rewrite (ADR-006).
+- **Valuation is coarse and absolute** — market-cap multiples against documented
+  heuristic references, not DCF, peer/sector-relative, or historical-percentile
+  valuation; the score is *relative cheapness*, never an intrinsic/fair-value claim.
 - Divergence relies on **Track A** (single-snapshot growth windows) until history
   accumulates; **Track B** engages automatically per asset as history builds. A
   scheduler for automated ingestion cadence is deferred to Sprint 12.
@@ -237,6 +255,10 @@ docker compose exec app python scripts/run_risk.py
 curl "http://localhost:8000/tokenomics"
 curl "http://localhost:8000/risk?band=elevated"
 
+# assess relative valuation over the candidates:
+docker compose exec app python scripts/run_valuation.py
+curl "http://localhost:8000/valuations?label=cheap"
+
 # combine into the Alpha Score (+ Risk + Confidence), then read the ranked list:
 docker compose exec app python scripts/run_alpha.py
 curl "http://localhost:8000/scores"
@@ -256,6 +278,7 @@ uv run python scripts/run_scan.py                        # then run a scan
 uv run python scripts/run_divergence.py                  # then run divergence
 uv run python scripts/run_tokenomics.py                  # value capture
 uv run python scripts/run_risk.py                        # risk (separate output)
+uv run python scripts/run_valuation.py                   # relative valuation
 uv run python scripts/run_alpha.py                       # Alpha + Risk + Confidence
 ```
 

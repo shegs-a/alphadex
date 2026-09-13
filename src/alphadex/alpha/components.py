@@ -8,10 +8,10 @@ the absence flows into Confidence (ADR-006). A *genuine* low reading (e.g. decli
 fundamentals, a ``thesis_weakening`` divergence) is available with a real low
 contribution — that is signal, not missing data.
 
-Two components are **not implemented yet** — Valuation (a real valuation engine is
-future) and Technical Setup (Sprint 08). They always report ``available=False`` and are
-absorbed by renormalization + Confidence, exactly like any missing input, until they
-land.
+One component is **not implemented yet** — Technical Setup. It always reports
+``available=False`` and is absorbed by renormalization + Confidence, exactly like any
+missing input, until it lands. Valuation **graduated** in Sprint 08 and now consumes
+the Valuation engine's score (available when measured, unavailable when ``None``).
 """
 
 from __future__ import annotations
@@ -205,13 +205,28 @@ def tokenomics(float_ratio: float | None, config: AlphaConfig) -> AlphaComponent
     )
 
 
-def valuation(config: AlphaConfig) -> AlphaComponent:
-    """Not implemented — a real valuation engine is future work (see ADR-006)."""
-    return _unavailable(NAME_VALUATION, config.weight_valuation, REASON_NOT_IMPLEMENTED)
+def valuation(valuation_score: float | None, config: AlphaConfig) -> AlphaComponent:
+    """Relative valuation attractiveness from the Sprint 08 score.
+
+    A *relative* cheapness reading (higher = cheaper vs the economics generated), never
+    an intrinsic/fair-value claim; ``None`` when no multiple was measurable →
+    unavailable (renormalized out, reflected in Confidence — ADR-006).
+    """
+    if valuation_score is None:
+        return _unavailable(
+            NAME_VALUATION, config.weight_valuation, "valuation not measured"
+        )
+    return AlphaComponent(
+        name=NAME_VALUATION,
+        weight=config.weight_valuation,
+        contribution=_clamp(valuation_score),
+        available=True,
+        detail=f"relative valuation score {valuation_score:.2f}",
+    )
 
 
 def technical_setup(config: AlphaConfig) -> AlphaComponent:
-    """Not implemented — the Technical Setup engine is Sprint 08 (see ADR-006)."""
+    """Not implemented — the Technical Setup engine is a later sprint (see ADR-006)."""
     return _unavailable(
         NAME_TECHNICAL_SETUP, config.weight_technical_setup, REASON_NOT_IMPLEMENTED
     )
@@ -224,6 +239,7 @@ class ComponentInputs:
     fundamentals_trend: float | None = None
     divergence_classification: str | None = None
     divergence_signal_strength: float | None = None
+    valuation_score: float | None = None
     value_capture_score: float | None = None
     float_ratio: float | None = None
     market_values: Values | None = None
@@ -240,7 +256,7 @@ def build_components(
             inputs.divergence_signal_strength,
             config,
         ),
-        valuation(config),
+        valuation(inputs.valuation_score, config),
         token_value_capture(inputs.value_capture_score, config),
         market_strength(inputs.market_values or {}, config),
         tokenomics(inputs.float_ratio, config),

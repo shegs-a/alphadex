@@ -27,6 +27,7 @@ from alphadex.models import (
     DivergenceSignal,
     RiskAssessment,
     TokenomicsSignal,
+    ValuationAssessment,
 )
 
 logger = get_logger(__name__)
@@ -66,6 +67,7 @@ class AlphaService:
         divergence_by = repository.load_latest_divergence(self._session, asset_ids)
         tokenomics_by = repository.load_latest_tokenomics(self._session, asset_ids)
         risk_by = repository.load_latest_risk(self._session, asset_ids)
+        valuation_by = repository.load_latest_valuation(self._session, asset_ids)
 
         def work(asset_id: int) -> AlphaAssessment:
             assessment = self._assess(
@@ -73,6 +75,7 @@ class AlphaService:
                 divergence_by.get(asset_id),
                 tokenomics_by.get(asset_id),
                 risk_by.get(asset_id),
+                valuation_by.get(asset_id),
             )
             self._persist(run.id, asset_id, assessment)
             return assessment
@@ -110,11 +113,13 @@ class AlphaService:
         div: DivergenceSignal | None,
         tok: TokenomicsSignal | None,
         risk: RiskAssessment | None,
+        val: ValuationAssessment | None,
     ) -> AlphaAssessment:
         inputs = ComponentInputs(
             fundamentals_trend=_num(div.fundamentals_trend) if div else None,
             divergence_classification=div.classification if div else None,
             divergence_signal_strength=_num(div.signal_strength) if div else None,
+            valuation_score=_num(val.valuation_score) if val else None,
             value_capture_score=_num(tok.value_capture_score) if tok else None,
             float_ratio=_num(tok.float_ratio) if tok else None,
             market_values=market_values,
