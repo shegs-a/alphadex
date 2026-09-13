@@ -10,8 +10,9 @@ Resources are designed per-sprint, not built speculatively. Implemented so far:
 - `GET /market-data` — latest market observations (Sprint 02)
 - `GET /fundamentals` — latest fundamental observations (Sprint 03)
 - `GET /opportunities`, `GET /opportunities/{id}`, `GET /scans` — scanner (Sprint 04)
+- `GET /divergences`, `GET /divergences/{id}`, `GET /divergence-runs` — divergence (Sprint 05)
 
-Planned: `/tokenomics`, `/scores`, `/divergences`, `/risk`.
+Planned: `/tokenomics`, `/scores`, `/risk`.
 
 ---
 
@@ -170,6 +171,55 @@ not part of the latest scan.
 
 Recent scan runs (metadata + counts): `id`, `status`, `started_at`, `finished_at`,
 `universe_size`, `candidate_count`. Newest first.
+
+---
+
+## `GET /divergences`
+
+Ranked signals from the **latest successful divergence run** — where fundamentals
+appear to be improving faster than price/valuation recognizes. Read-only; running the
+engine is an operational command. Returns `[]` if no run has happened yet.
+
+Query parameters (all optional):
+
+| Param            | Type | Notes                                                                 |
+|------------------|------|-----------------------------------------------------------------------|
+| `classification` | str  | `fundamental_divergence` / `watch` / `thesis_weakening` / `insufficient_data`. |
+| `limit`          | int  | 1–500 (default 100).                                                  |
+| `offset`         | int  | ≥ 0.                                                                  |
+
+Each item carries the fundamentals/price/valuation trends, the `method`
+(`growth_window` or `cross_time`), a **divergence score** (a component, not the Alpha
+Score), a `data_quality` figure, and the full `evidence`. A missing score is `null`
+with a classification — never `0` (ADR-003). Language is constrained to *fundamental
+divergence / watch / thesis weakening / risk* — no BUY/GUARANTEED (§10).
+
+```json
+[
+  { "asset_id": 12, "symbol": "FIL", "name": "Filecoin",
+    "classification": "fundamental_divergence", "divergence_score": 0.5298,
+    "fundamentals_trend": 0.7228, "price_trend": 0.193, "valuation_trend": null,
+    "window": "7d/30d", "method": "growth_window", "data_quality": 0.3, "rank": 2,
+    "evidence": {
+      "what_changed": "Fundamentals +72.3% (...); price +19.3% (...).",
+      "why_now": "based on provider 7d/30d growth windows (single snapshot)",
+      "what_supports": ["fundamentals improving (+72.3%, ...)"],
+      "what_contradicts": ["price already moved (+19.3%)"],
+      "what_invalidates": "fundamentals reversing, or price catching up",
+      "major_risk": "single-snapshot proxy — confirm as history accumulates; ..."
+    } }
+]
+```
+
+## `GET /divergences/{asset_id}`
+
+One asset's signal from the latest divergence run, with full evidence. `404` if the
+asset was not part of that run.
+
+## `GET /divergence-runs`
+
+Recent divergence runs: `id`, `status`, `started_at`, `finished_at`,
+`analyzed_count`, `divergence_count`. Newest first.
 
 ---
 

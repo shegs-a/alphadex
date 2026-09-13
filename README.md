@@ -91,18 +91,20 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 04 — Opportunity Scanner.**
+**Sprint 05 — Economic Divergence Engine.**
 
-The first **analytical pass**: a configurable, explainable **screen** over the
-market and fundamental data already ingested. It evaluates every asset against
-inclusion gates, computes a **preliminary Screen Score** (explicitly *not* the
-Alpha Score), classifies each asset (`candidate` / `watch` / `insufficient_data` /
-`excluded`), ranks the candidates, and persists each scan with the evidence behind
-every decision. Results are served read-only via `/opportunities` and `/scans`.
-Missing data is flagged explicitly and never zero-scored; there is no blind BUY
-language. This is the cheap, broad top of the tiered pipeline — it decides *what
-deserves deeper analysis*, not the final verdict (divergence, valuation, risk, and
-the real Alpha Score come in later sprints).
+The heart of the thesis: detecting where a protocol's **fundamentals are improving
+faster than the market's price/valuation recognizes**. For each candidate the
+Scanner surfaces, the engine computes a fundamentals trend and a price/valuation
+trend — from provider growth windows today (Track A) and, as history accumulates,
+from the append-only observation history (Track B, preferred) — measures the gap,
+classifies the signal (`fundamental_divergence` / `watch` / `thesis_weakening` /
+`insufficient_data`), and persists an **explainable** record (what changed, why now,
+what supports/contradicts/invalidates it, the major risk) with an honest
+`data_quality` figure. Results are served read-only via `/divergences`. It is a
+**component**, not the final verdict — the real Alpha/Risk/Confidence scoring comes
+later; there is no blind BUY language and thin data is surfaced honestly, never
+fabricated.
 
 ### Current capabilities
 - Documented mission, architecture principles, and coding/data/scoring rules
@@ -121,23 +123,30 @@ the real Alpha Score come in later sprints).
   Screen Score) that ranks candidates and persists each scan (`scan_runs` /
   `scan_results`) with per-criterion evidence; missing data flagged, never
   zero-scored; no BUY language.
+- **Economic Divergence Engine** — computes fundamentals vs price/valuation trends
+  (Track A growth windows now; Track B cross-time history when available) for the
+  Scanner's candidates and emits explainable, classified divergence signals
+  (`divergence_runs` / `divergence_signals`) with a `data_quality` figure.
 - **Ingestion + analysis commands** — `scripts/ingest_market_data.py`,
-  `scripts/ingest_fundamentals.py`, `scripts/run_scan.py`.
+  `scripts/ingest_fundamentals.py`, `scripts/run_scan.py`, `scripts/run_divergence.py`.
 - **Read API** — `GET /assets`, `GET /assets/{id}`, `GET /market-data`,
-  `GET /fundamentals`, `GET /opportunities`, `GET /opportunities/{id}`, `GET /scans`.
+  `GET /fundamentals`, `GET /opportunities`, `GET /opportunities/{id}`, `GET /scans`,
+  `GET /divergences`, `GET /divergences/{id}`, `GET /divergence-runs`.
 - Test suite under pytest (config, health, data-quality, migration, providers,
-  normalization, ingestion services, scanner, API) plus the foundation gate.
+  normalization, ingestion services, scanner, divergence, API) plus the foundation
+  gate.
 
 ### Known limitations
-- The Scanner is a preliminary screen only. No tokenomics, divergence, valuation,
-  risk, or the real (three-part) Alpha/Risk/Confidence scoring yet — in particular,
-  **computing divergence** between fundamentals and price is Sprint 05.
+- Divergence is a **component**, not a verdict. No tokenomics, valuation, risk, or
+  the real three-part Alpha/Risk/Confidence scoring yet (Sprints 06–07).
+- Divergence relies on **Track A** (single-snapshot provider growth windows) until
+  observation history accumulates; **Track B** (cross-time, more rigorous) engages
+  automatically per asset as history builds. History is built by running ingestion
+  repeatedly; automated cadence (a scheduler) is deferred to Sprint 12.
 - Fundamentals cover only assets already in the market universe (Phase 1 matches by
-  `gecko_id`; protocols with no in-universe match are skipped — broadening this is
-  deferred to a later version).
-- No background scheduler: ingestion and scans are run on demand. No reporting,
-  notifications, or dashboard yet.
-- Database and provider access are synchronous (sufficient at current scale).
+  `gecko_id`; unmatched protocols are skipped).
+- No reporting, notifications, or dashboard yet. Database and provider access are
+  synchronous (sufficient at current scale).
 
 ---
 
@@ -163,6 +172,10 @@ curl "http://localhost:8000/fundamentals?metric=fundamental.tvl_usd"
 # run the opportunity scanner, then read the ranked candidates:
 docker compose exec app python scripts/run_scan.py
 curl "http://localhost:8000/opportunities?status=candidate"
+
+# run the divergence engine over the candidates, then read the signals:
+docker compose exec app python scripts/run_divergence.py
+curl "http://localhost:8000/divergences?classification=fundamental_divergence"
 ```
 
 ### Local development
@@ -175,6 +188,7 @@ uv run uvicorn alphadex.api.app:app --reload    # run the API
 uv run python scripts/ingest_market_data.py --top-n 25   # ingest market data
 uv run python scripts/ingest_fundamentals.py             # then ingest fundamentals
 uv run python scripts/run_scan.py                        # then run a scan
+uv run python scripts/run_divergence.py                  # then run divergence
 ```
 
 > A local PostgreSQL is required for `alembic upgrade` and a live `/health`. The

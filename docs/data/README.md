@@ -40,6 +40,15 @@ Home for AlphaDex Scout's data model documentation:
   typed columns; JSON holds only the explanatory breakdown (§9). A missing score is
   `NULL` with a status explaining why — never `0` (ADR-003). Scan results are
   **derived data**, regenerable by re-running a scan.
+- **`divergence_runs`** — one row per Divergence Engine run: timestamp, status,
+  `analyzed_count`, `divergence_count`, and a snapshot of the config used.
+- **`divergence_signals`** — one row per analyzed asset per run: `classification`
+  (`fundamental_divergence` / `watch` / `thesis_weakening` / `insufficient_data`),
+  `divergence_score` (nullable — a **component**, not the Alpha Score),
+  `fundamentals_trend`, `price_trend`, `valuation_trend`, `window`, `method`
+  (`growth_window` / `cross_time`), `data_quality`, `rank`, and an `evidence` JSON
+  (the §10 questions answered). A missing score is `NULL` with a classification —
+  never `0`. Signals are **derived data**.
 
 ### Missing-data semantics (ADR-003)
 
@@ -149,6 +158,35 @@ so it can never inflate a score. Weights are configurable and must sum to 1.0.
 gates, no fundamentals yet), `insufficient_data` (passed gates but fundamentals
 required and absent), `excluded` (failed a gate). Only `candidate`/`watch` are
 scored and ranked. There is no BUY language (§10).
+
+---
+
+## Economic Divergence Engine (Sprint 05)
+
+The Divergence Engine answers the system's core question (§1): *are fundamentals
+improving faster than price/valuation recognizes?* It runs on the Scanner's
+candidates and, for each, compares a **fundamentals trend** to a **price/valuation
+trend**, using whichever evidence the asset has:
+
+- **Track A — provider growth windows (single snapshot).** From fees over 7d/30d it
+  derives an *acceleration* (7d run-rate vs 30d run-rate) and compares it to the
+  provider's 30d price change. Works immediately, no accumulated history needed.
+- **Track B — cross-time from the append-only history (preferred).** When two
+  observations of a metric exist at least `min_history_days` apart, it computes the
+  change directly from their `observed_at` values — hindsight-free (§10) and
+  preferred over Track A when available.
+
+A coarse market-cap-to-annualized-fees multiple is one additional input (a
+divergence signal, **not** a valuation verdict — real valuation is a later sprint).
+
+The signed **divergence score** (in [-1, 1]) is a weighted blend of the
+fundamentals-vs-price gap and (when available) the valuation-multiple change. It is
+a **component**, never the Alpha Score. Classifications: `fundamental_divergence`
+(fundamentals improving, price lagging), `watch`, `thesis_weakening` (fundamentals
+declining or price ran ahead), `insufficient_data` (core inputs missing → `null`
+score). Every signal carries `data_quality` and evidence answering *what changed /
+why now / what supports / contradicts / invalidates / the major risk*. No BUY
+language (§10).
 
 ## Providers
 

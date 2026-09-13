@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.5.0] — 2026-09-13
+
+### Added
+- Economic Divergence Engine (Sprint 05) — the heart of the thesis:
+  - Detects where a protocol's fundamentals are improving faster than the market's
+    price/valuation recognizes. A pure analytical layer over the internal data
+    model; runs on the Scanner's candidates (tiered pipeline, §9).
+  - **Two-track trend measurement** in one engine: **Track A** (provider 7d/30d
+    growth windows — a fundamentals *acceleration* signal that works from a single
+    snapshot) and **Track B** (cross-time change from the append-only history, keyed
+    off `observed_at` — hindsight-free and preferred when available). A coarse
+    market-cap-to-fees multiple is one additional input.
+  - A signed **divergence score** in [-1, 1] (a component, **not** the Alpha Score),
+    classification (`fundamental_divergence` / `watch` / `thesis_weakening` /
+    `insufficient_data`), and full **explainable evidence** (what changed / why now /
+    what supports / contradicts / invalidates / major risk) with an honest
+    `data_quality` figure. A missing core input yields a `null` score with a
+    classification — never `0` (ADR-003). No blind BUY language (§10).
+  - Persistence: `divergence_runs` (config snapshot) and `divergence_signals`
+    (typed trends/score/method/data_quality + a JSON evidence breakdown). Migration
+    `0004` (additive, reversible); signals are derived data.
+  - Read-only `GET /divergences` (ranked, filter by classification),
+    `GET /divergences/{asset_id}` (404 if not analyzed), `GET /divergence-runs`.
+  - `scripts/run_divergence.py` one-shot pass; scope/thresholds/weights/min-history
+    configurable in `config.py` / `.env.example` (weights validated to sum to 1.0).
+
+### Notes
+- Divergence's value compounds as observation history accrues (Track B); automated
+  ingestion cadence (a scheduler) is deferred to Sprint 12. Verified end-to-end on
+  Docker + PostgreSQL 16: migration `0004` applies, a pass over the scan's 91
+  candidates+watch produced 2 fundamental_divergence / 8 watch / 8 thesis_weakening
+  / 73 insufficient_data, with caveated evidence. Full suite: 114 tests; ruff and
+  mypy clean.
+
 ## [0.4.0] — 2026-09-13
 
 ### Added
