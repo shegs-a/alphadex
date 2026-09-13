@@ -9,8 +9,9 @@ Resources are designed per-sprint, not built speculatively. Implemented so far:
 - `GET /assets`, `GET /assets/{id}` — asset universe (Sprint 02)
 - `GET /market-data` — latest market observations (Sprint 02)
 - `GET /fundamentals` — latest fundamental observations (Sprint 03)
+- `GET /opportunities`, `GET /opportunities/{id}`, `GET /scans` — scanner (Sprint 04)
 
-Planned: `/tokenomics`, `/opportunities`, `/scores`, `/divergences`, `/risk`.
+Planned: `/tokenomics`, `/scores`, `/divergences`, `/risk`.
 
 ---
 
@@ -123,6 +124,52 @@ Query parameters (all optional):
 
 Fees, Revenue, Holders Revenue, and TVL are **distinct metrics** and are never
 conflated. The full list is in `docs/data/README.md`.
+
+---
+
+## `GET /opportunities`
+
+Ranked results from the **latest successful scan** — the Opportunity Scanner's
+candidate list. Read-only; running a scan is an operational command, not a public
+endpoint. Returns `[]` if no scan has run yet.
+
+Query parameters (all optional):
+
+| Param    | Type | Notes                                                   |
+|----------|------|---------------------------------------------------------|
+| `status` | str  | Filter: `candidate` / `watch` / `insufficient_data` / `excluded`. |
+| `limit`  | int  | 1–500 (default 100).                                    |
+| `offset` | int  | ≥ 0 (pagination).                                       |
+
+Results are ordered by `rank` (ranked candidates/watches first, then the rest).
+Each item carries the **preliminary Screen Score** (not the Alpha Score), data
+completeness, and the per-criterion `reasons` (gates + signals) behind the decision.
+A missing score is `null` with a status — never `0` (ADR-003). No BUY language (§10).
+
+```json
+[
+  { "asset_id": 12, "symbol": "SOL", "name": "Solana",
+    "status": "candidate", "screen_score": 0.9178, "rank": 1,
+    "data_completeness": 1.0,
+    "reasons": {
+      "gates": [ { "name": "min_volume_24h", "passed": true,
+                   "value": 1937648352.0, "threshold": 100000.0,
+                   "detail": "24h volume at or above floor" } ],
+      "signals": [ { "name": "activity", "present": true, "raw": 5.0e7,
+                     "normalized": 0.92, "weight": 0.4 } ]
+    } }
+]
+```
+
+## `GET /opportunities/{asset_id}`
+
+One asset's result from the latest scan, with full `reasons`. `404` if the asset was
+not part of the latest scan.
+
+## `GET /scans`
+
+Recent scan runs (metadata + counts): `id`, `status`, `started_at`, `finished_at`,
+`universe_size`, `candidate_count`. Newest first.
 
 ---
 

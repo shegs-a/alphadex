@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.4.0] — 2026-09-13
+
+### Added
+- Opportunity Scanner (Sprint 04) — the first analytical pass:
+  - A configurable, explainable **screen** over existing `market.*` and
+    `fundamental.*` observations (fetches nothing external): inclusion **gates**
+    (market-cap floor/ceiling, minimum 24h volume, data freshness) each returning
+    pass/fail with the value and threshold considered, plus a **preliminary Screen
+    Score** (log-scaled activity/liquidity/momentum blend, configurable weights).
+    This is explicitly **not** the Alpha Score.
+  - Per-asset classification: `candidate` / `watch` / `insufficient_data` /
+    `excluded`. Candidates and watches are scored and ranked; excluded/insufficient
+    carry a `null` score (never `0`). Missing inputs lower `data_completeness` and
+    can never inflate a score (§10, ADR-003). No blind BUY language (§10).
+  - Persistence: `scan_runs` (with a snapshot of the config used) and
+    `scan_results` (typed decision fields + a JSON per-criterion evidence
+    breakdown). Migration `0003` (additive, reversible).
+  - Read-only `GET /opportunities` (ranked, filter by status),
+    `GET /opportunities/{asset_id}` (404 if unscanned), `GET /scans`.
+  - `scripts/run_scan.py` one-shot scanner; screen thresholds and weights
+    configurable in `config.py` / `.env.example` (weights validated to sum to 1.0).
+
+### Notes
+- Scan results are derived data (regenerable by re-running a scan). Verified
+  end-to-end on Docker + PostgreSQL 16: migration `0003` applies, a scan over 100
+  assets produced 19 candidates / 72 watch / 9 excluded, and `/opportunities`
+  returned ranked candidates with full gate + signal evidence (excluded assets
+  scored `null`). Full suite: 89 tests; ruff and mypy clean.
+
 ## [0.3.0] — 2026-09-12
 
 ### Added

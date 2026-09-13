@@ -28,6 +28,18 @@ Home for AlphaDex Scout's data model documentation:
   (ADR-003) — missing data is never stored as `0`.
 - **`ingestion_runs`** — run-level record of each ingestion cycle
   (`provider`, `status`, counts, timing, error) for observability (AGENTS.md §8).
+- **`scan_runs`** — one row per Opportunity Scanner run: timestamp, status,
+  `universe_size`, `candidate_count`, and a **snapshot of the screen config**
+  (thresholds + weights) used, so a scan's results are reproducible and auditable
+  (§10).
+- **`scan_results`** — one row per asset per scan: `status`
+  (`candidate` / `watch` / `insufficient_data` / `excluded`), `passed`,
+  `screen_score` (nullable — a preliminary ordering score, **not** the Alpha
+  Score), `rank`, `data_completeness`, and a `reasons` JSON breakdown (per-criterion
+  pass/fail with value + threshold, and the score signals). Decision fields are
+  typed columns; JSON holds only the explanatory breakdown (§9). A missing score is
+  `NULL` with a status explaining why — never `0` (ADR-003). Scan results are
+  **derived data**, regenerable by re-running a scan.
 
 ### Missing-data semantics (ADR-003)
 
@@ -112,6 +124,31 @@ Freshness is derived from `observed_at` at read time and exposed by the API as
 `age_seconds`.
 
 ---
+
+---
+
+## Opportunity Scanner (Sprint 04)
+
+The Scanner is the cheap, broad screen at the top of the tiered pipeline (§9). It
+reads each asset's latest `market.*` and `fundamental.*` observations and produces a
+ranked, explainable candidate set — it decides *what deserves deeper analysis*, not
+the final verdict.
+
+**Inclusion gates** (an asset must pass all to be a candidate/watch): market-cap
+floor (and optional ceiling), minimum 24h volume, and data freshness. Each gate
+records the value and threshold it used, so exclusions are explainable. A missing
+required input **fails its gate explicitly** — never scored as `0`.
+
+**Preliminary Screen Score** (ordering only — **not** the Alpha Score): a
+configurable weighted blend of a few cheap, single-snapshot signals — `activity`
+(30d fees, log-scaled), `liquidity` (24h volume, log-scaled), and `momentum` (30d
+price change). A missing signal contributes nothing and lowers `data_completeness`,
+so it can never inflate a score. Weights are configurable and must sum to 1.0.
+
+**Classifications:** `candidate` (passed gates, has fundamentals), `watch` (passed
+gates, no fundamentals yet), `insufficient_data` (passed gates but fundamentals
+required and absent), `excluded` (failed a gate). Only `candidate`/`watch` are
+scored and ranked. There is no BUY language (§10).
 
 ## Providers
 

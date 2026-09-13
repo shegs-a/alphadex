@@ -91,16 +91,18 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 03 — Fundamental Intelligence.**
+**Sprint 04 — Opportunity Scanner.**
 
-On top of the market-data pipeline, the system now ingests **protocol
-fundamentals** (fees, revenue, holders-revenue, TVL) from a second provider
-(DefiLlama) behind a `FundamentalDataProvider` interface. Protocols are matched to
-assets already in the universe **strictly by `gecko_id`** (Phase 1 — unmatched
-protocols are skipped and counted), normalized into distinct `fundamental.*`
-observations with explicit missing-data and provenance, and served through a
-read-only `/fundamentals` endpoint. Fees, Revenue, Holders-Revenue, and TVL are
-kept strictly distinct and are never conflated with each other or with price.
+The first **analytical pass**: a configurable, explainable **screen** over the
+market and fundamental data already ingested. It evaluates every asset against
+inclusion gates, computes a **preliminary Screen Score** (explicitly *not* the
+Alpha Score), classifies each asset (`candidate` / `watch` / `insufficient_data` /
+`excluded`), ranks the candidates, and persists each scan with the evidence behind
+every decision. Results are served read-only via `/opportunities` and `/scans`.
+Missing data is flagged explicitly and never zero-scored; there is no blind BUY
+language. This is the cheap, broad top of the tiered pipeline — it decides *what
+deserves deeper analysis*, not the final verdict (divergence, valuation, risk, and
+the real Alpha Score come in later sprints).
 
 ### Current capabilities
 - Documented mission, architecture principles, and coding/data/scoring rules
@@ -115,22 +117,26 @@ kept strictly distinct and are never conflated with each other or with price.
   (price, market cap, FDV, volume, supply, price change, rank) and a DefiLlama
   adapter for `fundamental.*` metrics (fees, revenue, holders-revenue, TVL) — each
   with units, periods, and provenance.
-- **Ingestion commands** — `scripts/ingest_market_data.py` (configurable universe)
-  and `scripts/ingest_fundamentals.py` (protocols matched by `gecko_id`).
+- **Opportunity Scanner** — a configurable screen (inclusion gates + a preliminary
+  Screen Score) that ranks candidates and persists each scan (`scan_runs` /
+  `scan_results`) with per-criterion evidence; missing data flagged, never
+  zero-scored; no BUY language.
+- **Ingestion + analysis commands** — `scripts/ingest_market_data.py`,
+  `scripts/ingest_fundamentals.py`, `scripts/run_scan.py`.
 - **Read API** — `GET /assets`, `GET /assets/{id}`, `GET /market-data`,
-  `GET /fundamentals`.
+  `GET /fundamentals`, `GET /opportunities`, `GET /opportunities/{id}`, `GET /scans`.
 - Test suite under pytest (config, health, data-quality, migration, providers,
-  normalization, ingestion services, API) plus the dependency-free foundation gate.
+  normalization, ingestion services, scanner, API) plus the foundation gate.
 
 ### Known limitations
-- Two providers (CoinGecko, DefiLlama). No tokenomics, scoring, divergence,
-  valuation, or risk yet (Sprint 04+) — in particular, **computing divergence**
-  between fundamentals and price is Sprint 05.
+- The Scanner is a preliminary screen only. No tokenomics, divergence, valuation,
+  risk, or the real (three-part) Alpha/Risk/Confidence scoring yet — in particular,
+  **computing divergence** between fundamentals and price is Sprint 05.
 - Fundamentals cover only assets already in the market universe (Phase 1 matches by
   `gecko_id`; protocols with no in-universe match are skipped — broadening this is
   deferred to a later version).
-- No background scheduler: ingestion is run on demand. No reporting, notifications,
-  or dashboard yet.
+- No background scheduler: ingestion and scans are run on demand. No reporting,
+  notifications, or dashboard yet.
 - Database and provider access are synchronous (sufficient at current scale).
 
 ---
@@ -153,6 +159,10 @@ curl "http://localhost:8000/market-data?metric=market.price_usd"
 # ingest protocol fundamentals (matched to the assets above by gecko_id):
 docker compose exec app python scripts/ingest_fundamentals.py
 curl "http://localhost:8000/fundamentals?metric=fundamental.tvl_usd"
+
+# run the opportunity scanner, then read the ranked candidates:
+docker compose exec app python scripts/run_scan.py
+curl "http://localhost:8000/opportunities?status=candidate"
 ```
 
 ### Local development
@@ -164,6 +174,7 @@ uv run alembic upgrade head                     # apply migrations (needs a DB)
 uv run uvicorn alphadex.api.app:app --reload    # run the API
 uv run python scripts/ingest_market_data.py --top-n 25   # ingest market data
 uv run python scripts/ingest_fundamentals.py             # then ingest fundamentals
+uv run python scripts/run_scan.py                        # then run a scan
 ```
 
 > A local PostgreSQL is required for `alembic upgrade` and a live `/health`. The
