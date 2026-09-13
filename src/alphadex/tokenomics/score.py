@@ -1,9 +1,12 @@
 """Token Value Capture score — a component, not the Alpha Score.
 
-Blends a **dilution** component (float ratio) and a **value-capture** component
-(does revenue reach holders) over available inputs, renormalizing weights over what
-is present so a missing input lowers completeness and never inflates the score
-(ADR-003/ADR-005 discipline). ``data_completeness`` is kept separate from the score.
+The ``value_capture_score`` measures whether protocol economics accrue to the token.
+It is **only defined when value capture was actually measured** (revenue/fees,
+holders/revenue, or real yield). A strong float ratio alone (low dilution) does not
+prove value capture, so a dilution-only asset scores ``None`` — never a positive
+sentinel (Sprint 06.1 fix; ADR-003/ADR-005 discipline). When value capture is present,
+the score blends it with the dilution/float component. Dilution is always exposed
+separately via ``float_ratio``; ``data_completeness`` is kept separate from the score.
 """
 
 from __future__ import annotations
@@ -57,28 +60,28 @@ def evaluate(values: Values, config: TokenomicsConfig) -> TokenomicsOutcome:
         vc_parts.append(min(1.0, ry / config.ref_real_yield))
     value_capture = _mean(vc_parts) if vc_parts else None
 
-    # Blend dilution (float ratio) and value capture over present components.
-    components: list[tuple[float, float]] = []
-    if fr is not None:
-        components.append((config.weight_dilution, fr))
-    if value_capture is not None:
-        components.append((config.weight_value_capture, value_capture))
-
-    if components:
-        total_w = sum(w for w, _ in components)
-        score: float | None = sum(w * v for w, v in components) / total_w
+    # value_capture_score is a *value capture* score: it is only defined when value
+    # capture was actually measured. A strong float ratio alone must NOT read as
+    # strong value capture (Sprint 06.1 fix) — so the score is None unless a
+    # value-capture component exists. Dilution then contributes to the blend, and is
+    # always exposed separately via ``float_ratio``.
+    if value_capture is None:
+        score: float | None = None
     else:
-        score = None
+        components: list[tuple[float, float]] = [
+            (config.weight_value_capture, value_capture)
+        ]
+        if fr is not None:
+            components.append((config.weight_dilution, fr))
+        total_w = sum(w for w, _ in components)
+        score = sum(w * v for w, v in components) / total_w
 
     # Completeness over the four raw sub-signals (separate from the score).
     present = sum(1 for x in (fr, rtf, htr, ry) if x is not None)
     completeness = present / 4.0
 
-    # The label is about *value capture*: if no value-capture input is available, we
-    # cannot claim it is strong/weak just from low dilution — say "unknown" (the
-    # score still records the dilution measurement). Poor data never masquerades as a
-    # strong signal (ADR-005 discipline).
-    label = _label(score) if value_capture is not None else LABEL_UNKNOWN
+    # Label follows the score: None → unknown (poor data never masquerades as strong).
+    label = _label(score)
     evidence = _build_evidence(fr=fr, rtf=rtf, htr=htr, ry=ry, score=score, label=label)
     return TokenomicsOutcome(
         value_capture_score=score,

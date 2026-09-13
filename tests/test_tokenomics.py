@@ -78,25 +78,54 @@ def test_score_full_data() -> None:
     assert out.data_completeness == 1.0
 
 
-def test_missing_value_capture_uses_dilution_only_and_lowers_completeness() -> None:
+def test_dilution_only_yields_null_score_but_exposes_float_ratio() -> None:
+    # Sprint 06.1: a strong float ratio alone is NOT value capture. The score must be
+    # None (not a positive sentinel), while float_ratio is still exposed separately.
     only_supply = {METRIC_MARKET_CAP_USD: 5e8, METRIC_FDV_USD: 1e9}
     out = evaluate(only_supply, _cfg())
-    # Only the dilution component is present → score equals float ratio (0.5)…
-    assert out.value_capture_score == 0.5
-    assert out.data_completeness == 0.25  # 1/4 sub-signals
-    assert out.revenue_to_fees is None
-    # …but value capture itself is unmeasured, so the label must not claim it.
+    assert out.value_capture_score is None
     assert out.value_capture_label == LABEL_UNKNOWN
+    assert out.float_ratio == 0.5  # dilution measurement still available
+    assert out.data_completeness == 0.25  # 1/4 sub-signals
+
+
+def test_100pct_float_low_dilution_is_not_strong_value_capture() -> None:
+    # ETH/stablecoin pattern: float ratio 1.0, no fee/revenue/holders data.
+    out = evaluate({METRIC_MARKET_CAP_USD: 1e9, METRIC_FDV_USD: 1e9}, _cfg())
+    assert out.float_ratio == 1.0
+    assert out.value_capture_score is None  # never 1.0 "strong"
+    assert out.value_capture_label == LABEL_UNKNOWN
+
+
+def test_significant_dilution_still_null_without_value_capture() -> None:
+    out = evaluate({METRIC_MARKET_CAP_USD: 2e8, METRIC_FDV_USD: 1e9}, _cfg())
+    assert out.float_ratio == 0.2  # heavy overhang, exposed as a measurement
+    assert out.value_capture_score is None
+    assert out.value_capture_label == LABEL_UNKNOWN
+
+
+def test_value_capture_present_yields_a_real_score() -> None:
+    # Dilution + value capture both present → a genuine blended score.
+    out = evaluate(_full(), _cfg())
+    assert out.value_capture_score is not None
+    assert out.value_capture_label in ("strong", "moderate", "weak")
+
+
+def test_genuine_zero_value_capture_is_distinct_from_unknown() -> None:
+    # revenue = 0 (a real zero) → revenue_to_fees 0.0, a genuine value, NOT null.
+    v = {
+        METRIC_MARKET_CAP_USD: 5e8,
+        METRIC_FDV_USD: 1e9,
+        METRIC_FEES_30D_USD: 100.0,
+        METRIC_REVENUE_30D_USD: 0.0,  # genuine zero: protocol keeps nothing
+    }
+    out = evaluate(v, _cfg())
+    assert out.revenue_to_fees == 0.0  # zero, not None
+    assert out.value_capture_score is not None  # value capture WAS measured (as 0)
+    assert out.value_capture_label in ("weak", "moderate", "strong")
 
 
 def test_all_missing_is_unknown_null_not_zero() -> None:
     out = evaluate({}, _cfg())
     assert out.value_capture_score is None
     assert out.value_capture_label == LABEL_UNKNOWN
-
-
-def test_missing_inputs_never_inflate_score() -> None:
-    # A token with only a strong float ratio must not out-score by "assuming" the
-    # missing value-capture is favorable.
-    only_float = evaluate({METRIC_MARKET_CAP_USD: 9e8, METRIC_FDV_USD: 1e9}, _cfg())
-    assert only_float.value_capture_score == 0.9  # just the dilution component

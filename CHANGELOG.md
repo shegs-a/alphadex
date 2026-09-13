@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.6.1] — 2026-09-13
+
+### Fixed
+- Tokenomics & Risk validation (Sprint 06.1):
+  - **`value_capture_score` no longer reads as "strong" from dilution alone.** It
+    blended dilution (`float_ratio`) and value capture over *present* components, so a
+    dilution-only asset (e.g. ETH/stablecoins: `float_ratio = 1.0`, no fee/revenue
+    data) scored `1.0` while labeled `unknown`, and ranked #1. The score is now
+    `null` unless value capture was actually measured; `float_ratio` remains exposed
+    separately, and such assets are no longer ranked in tokenomics. Prefers explicit
+    `null`/status over a sentinel number (ADR-003/ADR-005 discipline).
+
+### Changed
+- Documented unambiguous semantics for every Sprint 06 output: risk factors are
+  absolute values clamped to [0,1] against a configured reference (what `1.0` means
+  per factor is now documented in `docs/data`); genuine zeros (e.g. `revenue = 0` →
+  `revenue_to_fees = 0.0`) are preserved and distinct from `null` (missing) and from a
+  zero denominator (undefined → `null`). Ranking semantics clarified in `docs/api`
+  (tokenomics = value-capture measurement; risk = highest risk first, a warning
+  ordering — neither is an opportunity ranking).
+
+### Notes
+- Source-only change (no migration; `value_capture_score` already nullable);
+  tokenomics results are derived data and repopulate on re-run. Divergence (ADR-005)
+  untouched. Verified end-to-end on Docker + PostgreSQL 16 — after re-running, ETH and
+  other 100%-float assets show `value_capture_score: null` / `unknown` and are
+  unranked. Full suite: 148 tests; ruff and mypy clean.
+
 ## [0.6.0] — 2026-09-13
 
 ### Added

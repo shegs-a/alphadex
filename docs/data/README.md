@@ -230,9 +230,15 @@ feeding the Alpha Score** (Sprint 07) — never the Alpha Score themselves.
 **dilution/float** measure (`market_cap / FDV`, or `circulating / max|total` supply)
 and **value capture** (`revenue/fees`, `holders_revenue/revenue`, and a real-yield
 proxy = annualized holders-revenue / market cap). Fees, Revenue, and Holders Revenue
-are read as **distinct** inputs (§9). The `value_capture_score` blends dilution and
-value capture over available inputs (renormalized), with a separate
-`data_completeness`; missing inputs are explicit, never `0`.
+are read as **distinct** inputs (§9). The `value_capture_score` is a *value capture*
+score: it is **`null` unless value capture was actually measured** (a strong float
+ratio alone is not value capture — it never reads as `1.0`/"strong" from dilution
+alone). When value capture is present, the score blends it with the dilution/float
+component; `float_ratio` is always exposed separately as its own measurement.
+`data_completeness` is kept separate; missing inputs are explicit, never `0`. A
+genuine zero (e.g. `revenue = 0` → `revenue_to_fees = 0.0`) is preserved and distinct
+from `null` (missing); a zero denominator makes a ratio undefined and is reported as
+`null`, never a false `0`.
 
 **Risk** is a **separate output** (§10) — a strong divergence with unacceptable risk
 is not a top candidate. Distinct factors (each 0..1, higher = riskier): **liquidity**
@@ -242,6 +248,14 @@ is not a top candidate. Distinct factors (each 0..1, higher = riskier): **liquid
 a `risk_band` (`low`/`moderate`/`elevated`/`high`), with `data_quality` kept separate
 — poor data raises uncertainty, never a false low risk. Language is *risk elevated /
 risk high*, never BUY (§10).
+
+Each risk factor is an **absolute value clamped to [0,1]** against a configured
+reference (not a percentile/relative rank). `1.0` means: **liquidity** — zero 24h
+turnover (no volume relative to market cap); **volatility** — a price swing at or above
+`ref_volatility` (default 50%; larger swings also clamp to 1.0); **dilution** —
+circulating value is 0% of fully diluted (maximum overhang); **size** — market cap
+near zero. A genuine `0.0` (e.g. no dilution at 100% float) is distinct from `null`
+(factor unavailable). `concentration_risk` is always `null`.
 
 ## Providers
 

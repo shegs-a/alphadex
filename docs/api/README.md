@@ -254,8 +254,9 @@ ratios (`float_ratio`, `revenue_to_fees`, `holders_to_revenue`, `real_yield`), a
 `value_capture_score` (a **component**, not the Alpha Score) with a
 `value_capture_label` (`strong`/`moderate`/`weak`/`unknown`), a separate
 `data_completeness`, `rank`, and `evidence`. Missing components are `null` — never
-`0`. The label is `unknown` when no value-capture input is available (a strong float
-ratio alone does not prove value capture). Query params: `label`, `limit`, `offset`.
+`0`. **`value_capture_score` is `null` (and the label `unknown`) unless value capture
+was actually measured** — a strong `float_ratio` alone does not read as "strong" value
+capture, and such assets are not ranked. Query params: `label`, `limit`, `offset`.
 `GET /tokenomics/{asset_id}` returns one asset (404 if not assessed);
 `GET /tokenomics-runs` lists runs.
 
