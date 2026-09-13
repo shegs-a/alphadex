@@ -11,8 +11,10 @@ Resources are designed per-sprint, not built speculatively. Implemented so far:
 - `GET /fundamentals` — latest fundamental observations (Sprint 03)
 - `GET /opportunities`, `GET /opportunities/{id}`, `GET /scans` — scanner (Sprint 04)
 - `GET /divergences`, `GET /divergences/{id}`, `GET /divergence-runs` — divergence (Sprint 05)
+- `GET /tokenomics`, `GET /tokenomics/{id}`, `GET /tokenomics-runs` — value capture (Sprint 06)
+- `GET /risk`, `GET /risk/{id}`, `GET /risk-runs` — risk (Sprint 06)
 
-Planned: `/tokenomics`, `/scores`, `/risk`.
+Planned: `/scores` (Alpha Score, Sprint 07).
 
 ---
 
@@ -241,6 +243,34 @@ asset was not part of that run.
 
 Recent divergence runs: `id`, `status`, `started_at`, `finished_at`,
 `analyzed_count`, `divergence_count`. Newest first.
+
+---
+
+## `GET /tokenomics`
+
+Per-candidate **Token Value Capture** from the latest tokenomics run (Sprint 06).
+Read-only; returns `[]` if no run yet. Each item carries the distinct component
+ratios (`float_ratio`, `revenue_to_fees`, `holders_to_revenue`, `real_yield`), a
+`value_capture_score` (a **component**, not the Alpha Score) with a
+`value_capture_label` (`strong`/`moderate`/`weak`/`unknown`), a separate
+`data_completeness`, `rank`, and `evidence`. Missing components are `null` — never
+`0`. The label is `unknown` when no value-capture input is available (a strong float
+ratio alone does not prove value capture). Query params: `label`, `limit`, `offset`.
+`GET /tokenomics/{asset_id}` returns one asset (404 if not assessed);
+`GET /tokenomics-runs` lists runs.
+
+## `GET /risk`
+
+Per-candidate **Risk** from the latest risk run — a **separate output** from the
+Alpha Score (§10). Each item carries distinct factors (`liquidity_risk`,
+`volatility_risk`, `dilution_risk`, `size_risk`, `concentration_risk`), a
+`risk_score` (nullable) + `risk_band` (`low`/`moderate`/`elevated`/`high`/`unknown`),
+a separate `data_quality`, `rank`, and `evidence`. `concentration_risk` is always
+`null` (no on-chain data — a surfaced gap). A missing score is `null` with a band,
+never `0`. Ordered by risk score, highest first (a warning ordering, not an
+opportunity ranking). Language is *risk elevated / risk high*, never BUY. Query
+params: `band`, `limit`, `offset`. `GET /risk/{asset_id}` returns one asset (404 if
+not assessed); `GET /risk-runs` lists runs.
 
 ---
 

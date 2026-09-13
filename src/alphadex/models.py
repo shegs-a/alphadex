@@ -428,3 +428,172 @@ class DivergenceSignal(Base):
             f"<DivergenceSignal run={self.divergence_run_id} asset={self.asset_id} "
             f"class={self.classification!r} rank={self.rank}>"
         )
+
+
+class TokenomicsRun(Base):
+    """One run of the Tokenomics (Token Value Capture) engine (Sprint 06)."""
+
+    __tablename__ = "tokenomics_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    analyzed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    signals: Mapped[list[TokenomicsSignal]] = relationship(
+        back_populates="tokenomics_run", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<TokenomicsRun id={self.id} status={self.status!r}>"
+
+
+class TokenomicsSignal(Base):
+    """One asset's Token Value Capture assessment.
+
+    Measures whether protocol economics accrue to the token: dilution/float and
+    value capture (Fees ≠ Revenue ≠ Holders Revenue kept distinct — §9). The
+    ``value_capture_score`` is a **component**, not the Alpha Score, and is ``NULL``
+    with a label when it cannot be computed — never ``0`` (ADR-003). Component
+    values are kept distinct from the score, and ``data_completeness`` is separate
+    (ADR-005 discipline).
+    """
+
+    __tablename__ = "tokenomics_signals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tokenomics_run_id: Mapped[int] = mapped_column(
+        ForeignKey("tokenomics_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+
+    value_capture_score: Mapped[float | None] = mapped_column(
+        Numeric(9, 6), nullable=True
+    )
+    # strong | moderate | weak | unknown
+    value_capture_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    float_ratio: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    revenue_to_fees: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    holders_to_revenue: Mapped[float | None] = mapped_column(
+        Numeric(18, 8), nullable=True
+    )
+    real_yield: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    data_completeness: Mapped[float | None] = mapped_column(
+        Numeric(5, 4), nullable=True
+    )
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    tokenomics_run: Mapped[TokenomicsRun] = relationship(back_populates="signals")
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        Index("ix_tokenomics_signals_run", "tokenomics_run_id"),
+        Index("ix_tokenomics_signals_asset", "asset_id"),
+        UniqueConstraint(
+            "tokenomics_run_id", "asset_id", name="uq_tokenomics_signal_run_asset"
+        ),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<TokenomicsSignal run={self.tokenomics_run_id} asset={self.asset_id} "
+            f"label={self.value_capture_label!r}>"
+        )
+
+
+class RiskRun(Base):
+    """One run of the Risk engine (Sprint 06). Risk is a separate output (§10)."""
+
+    __tablename__ = "risk_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    analyzed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    assessments: Mapped[list[RiskAssessment]] = relationship(
+        back_populates="risk_run", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<RiskRun id={self.id} status={self.status!r}>"
+
+
+class RiskAssessment(Base):
+    """One asset's Risk assessment — a **separate** output from Alpha (§10).
+
+    Per-factor risks (0..1, higher = riskier) plus a blended ``risk_score`` and a
+    ``risk_band``. ``concentration_risk`` is ``NULL`` (no on-chain provider yet) —
+    a data gap surfaced, never guessed. A missing score is ``NULL`` with a band,
+    never ``0`` (ADR-003); ``data_quality`` is separate from the score.
+    """
+
+    __tablename__ = "risk_assessments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    risk_run_id: Mapped[int] = mapped_column(
+        ForeignKey("risk_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+
+    risk_score: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # low | moderate | elevated | high | unknown
+    risk_band: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    liquidity_risk: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    volatility_risk: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    dilution_risk: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    size_risk: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    concentration_risk: Mapped[float | None] = mapped_column(
+        Numeric(9, 6), nullable=True
+    )
+    data_quality: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    risk_run: Mapped[RiskRun] = relationship(back_populates="assessments")
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        Index("ix_risk_assessments_run", "risk_run_id"),
+        Index("ix_risk_assessments_asset", "asset_id"),
+        UniqueConstraint(
+            "risk_run_id", "asset_id", name="uq_risk_assessment_run_asset"
+        ),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<RiskAssessment run={self.risk_run_id} asset={self.asset_id} "
+            f"band={self.risk_band!r}>"
+        )

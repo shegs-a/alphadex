@@ -57,18 +57,29 @@ def test_migration_creates_and_drops_tables(sqlite_db_url: str) -> None:
         "scan_results",
         "divergence_runs",
         "divergence_signals",
+        "tokenomics_runs",
+        "tokenomics_signals",
+        "risk_runs",
+        "risk_assessments",
     }.issubset(tables)
     engine.dispose()
 
     command.downgrade(cfg, "base")
     engine = create_engine(sqlite_db_url)
     tables = set(inspect(engine).get_table_names())
-    assert "assets" not in tables
-    assert "metric_observations" not in tables
-    assert "asset_source_ids" not in tables
-    assert "ingestion_runs" not in tables
-    assert "scan_runs" not in tables
-    assert "scan_results" not in tables
-    assert "divergence_runs" not in tables
-    assert "divergence_signals" not in tables
+    for dropped in (
+        "assets",
+        "metric_observations",
+        "asset_source_ids",
+        "ingestion_runs",
+        "scan_runs",
+        "scan_results",
+        "divergence_runs",
+        "divergence_signals",
+        "tokenomics_runs",
+        "tokenomics_signals",
+        "risk_runs",
+        "risk_assessments",
+    ):
+        assert dropped not in tables
     engine.dispose()

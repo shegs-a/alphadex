@@ -86,6 +86,30 @@ class Settings(BaseSettings):
     divergence_weight_gap: float = Field(default=0.7)
     divergence_weight_valuation: float = Field(default=0.3)
 
+    # ── Tokenomics / Token Value Capture (Sprint 06) ────────────────────────
+    tokenomics_scope: str = Field(default="candidates")
+    # Annualized holders-revenue / market cap that scores full marks (10% = 1.0).
+    tokenomics_ref_real_yield: float = Field(default=0.10)
+    # Value Capture score weights (must sum to 1.0; a component, NOT the Alpha Score).
+    tokenomics_weight_dilution: float = Field(default=0.5)
+    tokenomics_weight_value_capture: float = Field(default=0.5)
+
+    # ── Risk Engine (Sprint 06) — a separate output (§10) ───────────────────
+    risk_scope: str = Field(default="candidates")
+    # Normalization references for the risk factors (documented heuristics).
+    risk_ref_turnover: float = Field(default=0.10)  # healthy 24h volume / market cap
+    risk_ref_volatility: float = Field(default=0.50)  # 50% swing → full volatility risk
+    risk_ref_market_cap: float = Field(default=10_000_000_000.0)  # size reference
+    # Risk Score factor weights (must sum to 1.0).
+    risk_weight_liquidity: float = Field(default=0.30)
+    risk_weight_volatility: float = Field(default=0.30)
+    risk_weight_dilution: float = Field(default=0.20)
+    risk_weight_size: float = Field(default=0.20)
+    # Risk band cut points on the 0..1 score (documented, tunable).
+    risk_band_moderate: float = Field(default=0.25)
+    risk_band_elevated: float = Field(default=0.50)
+    risk_band_high: float = Field(default=0.75)
+
     @property
     def universe_ids(self) -> list[str]:
         """Parsed explicit universe ids (empty when top-N mode is used)."""

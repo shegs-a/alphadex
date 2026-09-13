@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Work toward the next release. Move entries under a version heading on release._
 
+## [0.6.0] — 2026-09-13
+
+### Added
+- Tokenomics & Risk engines (Sprint 06) — two distinct assessments over the
+  Scanner's candidates, both components/outputs feeding Sprint 07's Alpha Score:
+  - **Token Value Capture (Tokenomics):** a `value_capture_score` (a component, not
+    the Alpha Score) blending dilution/float overhang (`market_cap/FDV`, or
+    `circulating/max|total` supply) with value capture — `revenue/fees`,
+    `holders_revenue/revenue`, and a real-yield proxy (annualized holders-revenue /
+    market cap). Fees ≠ Revenue ≠ Holders Revenue kept distinct (§9). Component
+    ratios are stored separately from the score; `data_completeness` is separate;
+    missing inputs are `NOT_AVAILABLE`, never `0`. Read-only `GET /tokenomics`,
+    `/tokenomics/{id}`, `/tokenomics-runs`; `scripts/run_tokenomics.py`.
+  - **Risk Engine:** a **separate** `risk_score` (§10) + `risk_band`
+    (`low`/`moderate`/`elevated`/`high`/`unknown`) over distinct factors — liquidity
+    (turnover), volatility (price-change magnitude), dilution (FDV overhang), size —
+    with `data_quality` kept separate from the score. **Holder concentration is
+    `NOT_AVAILABLE`** (no on-chain provider yet) — a surfaced data gap, never guessed.
+    Read-only `GET /risk`, `/risk/{id}`, `/risk-runs`; `scripts/run_risk.py`.
+  - New `alphadex.analysis` shared base (candidate selection, latest-value loading,
+    per-asset SAVEPOINT isolation) used by both engines.
+  - Migration `0006` (additive, reversible): `tokenomics_runs`/`tokenomics_signals`
+    and `risk_runs`/`risk_assessments`. Results are derived data.
+  - Config: tokenomics + risk weights/thresholds/scope (weights validated to 1.0).
+
+### Notes
+- Risk is deliberately a separate output — a strong divergence with unacceptable
+  risk is not a top candidate. No changes to the divergence engine (ADR-005 contract
+  consumed, not modified). Verified end-to-end on Docker + PostgreSQL 16. Full suite:
+  145 tests; ruff and mypy clean.
+
 ## [0.5.1] — 2026-09-13
 
 ### Changed

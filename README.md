@@ -91,7 +91,20 @@ Rationale in `docs/decisions/ADR-002-technology-stack.md`.
 
 ## Current status
 
-**Sprint 05.1 — Economic Divergence Engine (refined).**
+**Sprint 06 — Tokenomics & Risk Engine.**
+
+On top of divergence, two assessments that separate "there is a divergence" from
+"this is a real opportunity": **Token Value Capture** (does protocol strength accrue
+to the token — dilution/float and whether fees/revenue reach holders) and a
+**separate Risk Score** (liquidity, volatility, dilution, size; holder concentration
+surfaced as an unavailable data gap). Both run over the Scanner's candidates, are
+explainable, keep component values distinct from scores and `data_quality` separate,
+and are served read-only via `/tokenomics` and `/risk`. They are **components/outputs
+feeding the Alpha Score** (Sprint 07), which will combine divergence + value capture
+and report Risk separately. No BUY language; missing data is explicit, never `0`.
+
+<details><summary>Previous: Sprint 05.1 — Economic Divergence Engine (refined)</summary>
+
 
 The heart of the thesis: detecting where a protocol's **fundamentals are improving
 faster than the market's price/valuation recognizes**. For each candidate the
@@ -109,6 +122,8 @@ read-only via `/divergences`. It is a **component**, not the final verdict — t
 Alpha/Risk/Confidence scoring comes later; ranking is a preliminary
 divergence-measurement ranking, not an opportunity ranking; there is no blind BUY
 language and thin data is surfaced honestly, never fabricated.
+
+</details>
 
 ### Current capabilities
 - Documented mission, architecture principles, and coding/data/scoring rules
@@ -130,25 +145,32 @@ language and thin data is surfaced honestly, never fabricated.
 - **Economic Divergence Engine** — computes fundamentals vs price/valuation trends
   (Track A growth windows now; Track B cross-time history when available) for the
   Scanner's candidates and emits explainable, classified divergence signals
-  (`divergence_runs` / `divergence_signals`) with a `data_quality` figure.
+  (measurement separate from interpretation, ADR-005).
+- **Tokenomics (Token Value Capture)** — dilution/float + fee-to-holders value
+  capture into a `value_capture_score` component; and a **separate Risk Engine** —
+  liquidity/volatility/dilution/size into a `risk_score` + band (concentration
+  surfaced as unavailable). Both persist runs with evidence.
 - **Ingestion + analysis commands** — `scripts/ingest_market_data.py`,
-  `scripts/ingest_fundamentals.py`, `scripts/run_scan.py`, `scripts/run_divergence.py`.
-- **Read API** — `GET /assets`, `GET /assets/{id}`, `GET /market-data`,
-  `GET /fundamentals`, `GET /opportunities`, `GET /opportunities/{id}`, `GET /scans`,
-  `GET /divergences`, `GET /divergences/{id}`, `GET /divergence-runs`.
+  `scripts/ingest_fundamentals.py`, `scripts/run_scan.py`,
+  `scripts/run_divergence.py`, `scripts/run_tokenomics.py`, `scripts/run_risk.py`.
+- **Read API** — `/health`, `/assets`, `/market-data`, `/fundamentals`,
+  `/opportunities`, `/scans`, `/divergences`, `/divergence-runs`, `/tokenomics`,
+  `/tokenomics-runs`, `/risk`, `/risk-runs` (plus the `/{id}` variants).
 - Test suite under pytest (config, health, data-quality, migration, providers,
-  normalization, ingestion services, scanner, divergence, API) plus the foundation
-  gate.
+  normalization, ingestion services, scanner, divergence, tokenomics, risk, API)
+  plus the foundation gate.
 
 ### Known limitations
-- Divergence is a **component**, not a verdict. No tokenomics, valuation, risk, or
-  the real three-part Alpha/Risk/Confidence scoring yet (Sprints 06–07).
-- Divergence relies on **Track A** (single-snapshot provider growth windows) until
-  observation history accumulates; **Track B** (cross-time, more rigorous) engages
-  automatically per asset as history builds. History is built by running ingestion
-  repeatedly; automated cadence (a scheduler) is deferred to Sprint 12.
-- Fundamentals cover only assets already in the market universe (Phase 1 matches by
-  `gecko_id`; unmatched protocols are skipped).
+- These engines produce **components/outputs**, not a verdict. The real three-part
+  **Alpha / Risk / Confidence** scoring that combines them is Sprint 07.
+- Divergence relies on **Track A** (single-snapshot growth windows) until history
+  accumulates; **Track B** engages automatically per asset as history builds. A
+  scheduler for automated ingestion cadence is deferred to Sprint 12.
+- Tokenomics/Risk use available data only: dilution is a supply-ratio proxy, and
+  **holder concentration is unavailable** (no on-chain provider yet) — surfaced as a
+  gap, never guessed.
+- Fundamentals cover only assets already in the market universe (Phase 1 `gecko_id`
+  match; unmatched protocols skipped).
 - No reporting, notifications, or dashboard yet. Database and provider access are
   synchronous (sufficient at current scale).
 
@@ -180,6 +202,12 @@ curl "http://localhost:8000/opportunities?status=candidate"
 # run the divergence engine over the candidates, then read the signals:
 docker compose exec app python scripts/run_divergence.py
 curl "http://localhost:8000/divergences?classification=fundamental_divergence"
+
+# assess token value capture and risk over the candidates:
+docker compose exec app python scripts/run_tokenomics.py
+docker compose exec app python scripts/run_risk.py
+curl "http://localhost:8000/tokenomics"
+curl "http://localhost:8000/risk?band=elevated"
 ```
 
 ### Local development
@@ -193,6 +221,8 @@ uv run python scripts/ingest_market_data.py --top-n 25   # ingest market data
 uv run python scripts/ingest_fundamentals.py             # then ingest fundamentals
 uv run python scripts/run_scan.py                        # then run a scan
 uv run python scripts/run_divergence.py                  # then run divergence
+uv run python scripts/run_tokenomics.py                  # value capture
+uv run python scripts/run_risk.py                        # risk (separate output)
 ```
 
 > A local PostgreSQL is required for `alembic upgrade` and a live `/health`. The

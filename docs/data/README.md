@@ -53,6 +53,18 @@ Home for AlphaDex Scout's data model documentation:
   `data_quality` (separate from signal strength), `rank`, and an `evidence` JSON (the
   §10 questions + `evidence_strength`). A missing score is `NULL` with a
   classification — never `0`. Signals are **derived data**.
+- **`tokenomics_runs` / `tokenomics_signals`** — Token Value Capture (Sprint 06).
+  Per asset: distinct component ratios (`float_ratio`, `revenue_to_fees`,
+  `holders_to_revenue`, `real_yield`), a `value_capture_score` (nullable — a
+  **component**, not the Alpha Score) + `value_capture_label`, a separate
+  `data_completeness`, `rank`, and `evidence` JSON. Missing components are `NULL`,
+  never `0`. Derived data.
+- **`risk_runs` / `risk_assessments`** — the **separate** Risk output (§10, Sprint
+  06). Per asset: distinct factors (`liquidity_risk`, `volatility_risk`,
+  `dilution_risk`, `size_risk`, `concentration_risk`), a `risk_score` (nullable) +
+  `risk_band`, a separate `data_quality`, `rank`, and `evidence` JSON.
+  `concentration_risk` is always `NULL` (no on-chain data — a surfaced gap). Derived
+  data.
 
 ### Missing-data semantics (ADR-003)
 
@@ -206,6 +218,30 @@ strength — never multiplied into the score) and evidence answering *what chang
 why now / what supports / contradicts / invalidates / the major risk*, plus an
 `evidence_strength`. No BUY language (§10). Ranking is a preliminary
 divergence-*measurement* ranking (largest measured gap), not an opportunity ranking.
+
+---
+
+## Tokenomics & Risk (Sprint 06)
+
+Two distinct assessments run over the Scanner's candidates, both **components/outputs
+feeding the Alpha Score** (Sprint 07) — never the Alpha Score themselves.
+
+**Token Value Capture** answers "does protocol strength accrue to the token?": a
+**dilution/float** measure (`market_cap / FDV`, or `circulating / max|total` supply)
+and **value capture** (`revenue/fees`, `holders_revenue/revenue`, and a real-yield
+proxy = annualized holders-revenue / market cap). Fees, Revenue, and Holders Revenue
+are read as **distinct** inputs (§9). The `value_capture_score` blends dilution and
+value capture over available inputs (renormalized), with a separate
+`data_completeness`; missing inputs are explicit, never `0`.
+
+**Risk** is a **separate output** (§10) — a strong divergence with unacceptable risk
+is not a top candidate. Distinct factors (each 0..1, higher = riskier): **liquidity**
+(low `volume/market_cap` turnover), **volatility** (price-change magnitude),
+**dilution** (FDV overhang), **size** (small market cap). **Concentration** is
+`NOT_AVAILABLE` (needs on-chain data). The `risk_score` blends available factors into
+a `risk_band` (`low`/`moderate`/`elevated`/`high`), with `data_quality` kept separate
+— poor data raises uncertainty, never a false low risk. Language is *risk elevated /
+risk high*, never BUY (§10).
 
 ## Providers
 
