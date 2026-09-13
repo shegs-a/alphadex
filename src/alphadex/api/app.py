@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from alphadex import __version__
 from alphadex.api.routes import (
     assets,
+    divergences,
     fundamentals,
     health,
     market_data,
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(market_data.router)
     app.include_router(fundamentals.router)
     app.include_router(opportunities.router)
+    app.include_router(divergences.router)
     return app
 
 

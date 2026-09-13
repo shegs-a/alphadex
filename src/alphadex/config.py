@@ -68,6 +68,19 @@ class Settings(BaseSettings):
     scan_weight_liquidity: float = Field(default=0.3)
     scan_weight_momentum: float = Field(default=0.3)
 
+    # ── Divergence Engine (Sprint 05) ───────────────────────────────────────
+    # Which assets to analyze: "candidates" (latest scan candidates+watch) or "all".
+    divergence_scope: str = Field(default="candidates")
+    # Track B needs two observations at least this many days apart.
+    divergence_min_history_days: float = Field(default=5.0)
+    # Classification thresholds (on the signed divergence score, -1..1).
+    divergence_threshold: float = Field(default=0.15)
+    divergence_weakening_threshold: float = Field(default=-0.15)
+    divergence_min_fundamentals_improvement: float = Field(default=0.05)
+    # Divergence score component weights (must sum to 1.0; a component; NOT alpha).
+    divergence_weight_gap: float = Field(default=0.7)
+    divergence_weight_valuation: float = Field(default=0.3)
+
     @property
     def universe_ids(self) -> list[str]:
         """Parsed explicit universe ids (empty when top-N mode is used)."""

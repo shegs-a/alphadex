@@ -55,6 +55,8 @@ def test_migration_creates_and_drops_tables(sqlite_db_url: str) -> None:
         "ingestion_runs",
         "scan_runs",
         "scan_results",
+        "divergence_runs",
+        "divergence_signals",
     }.issubset(tables)
     engine.dispose()
 
@@ -67,4 +69,6 @@ def test_migration_creates_and_drops_tables(sqlite_db_url: str) -> None:
     assert "ingestion_runs" not in tables
     assert "scan_runs" not in tables
     assert "scan_results" not in tables
+    assert "divergence_runs" not in tables
+    assert "divergence_signals" not in tables
     engine.dispose()

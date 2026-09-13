@@ -327,3 +327,97 @@ class ScanResult(Base):
             f"<ScanResult run={self.scan_run_id} asset={self.asset_id} "
             f"status={self.status!r} rank={self.rank}>"
         )
+
+
+class DivergenceRun(Base):
+    """One run of the Economic Divergence Engine (Sprint 05).
+
+    The config used is snapshotted for reproducibility (§10). Divergence signals are
+    derived data, regenerable by re-running the engine.
+    """
+
+    __tablename__ = "divergence_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # running | success | failed
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    analyzed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    divergence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    signals: Mapped[list[DivergenceSignal]] = relationship(
+        back_populates="divergence_run", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<DivergenceRun id={self.id} status={self.status!r}>"
+
+
+class DivergenceSignal(Base):
+    """One asset's divergence signal in a run.
+
+    Quantifies the gap between improving fundamentals and lagging price/valuation.
+    ``divergence_score`` is a **component** (not the Alpha Score) and is ``NULL``
+    with a classification when it cannot be computed — never ``0`` (ADR-003). The
+    ``evidence`` JSON answers the §10 questions (what changed / why now / supports /
+    contradicts / invalidates / major risk). ``method`` records how the trend was
+    derived (``growth_window`` or ``cross_time``).
+    """
+
+    __tablename__ = "divergence_signals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    divergence_run_id: Mapped[int] = mapped_column(
+        ForeignKey("divergence_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # fundamental_divergence | watch | thesis_weakening | insufficient_data
+    classification: Mapped[str] = mapped_column(String(32), nullable=False)
+    divergence_score: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    fundamentals_trend: Mapped[float | None] = mapped_column(
+        Numeric(18, 8), nullable=True
+    )
+    price_trend: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    valuation_trend: Mapped[float | None] = mapped_column(Numeric(18, 8), nullable=True)
+    window: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    method: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    data_quality: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+    divergence_run: Mapped[DivergenceRun] = relationship(back_populates="signals")
+    asset: Mapped[Asset] = relationship()
+
+    __table_args__ = (
+        Index("ix_divergence_signals_run", "divergence_run_id"),
+        Index("ix_divergence_signals_asset", "asset_id"),
+        UniqueConstraint(
+            "divergence_run_id", "asset_id", name="uq_divergence_signal_run_asset"
+        ),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return (
+            f"<DivergenceSignal run={self.divergence_run_id} asset={self.asset_id} "
+            f"class={self.classification!r} rank={self.rank}>"
+        )
